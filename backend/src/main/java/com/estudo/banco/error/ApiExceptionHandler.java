@@ -24,6 +24,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError("CONTA_NAO_ENCONTRADA", e.getMessage()));
     }
 
+    @ExceptionHandler(TransferenciaInvalidaException.class)
+    public ResponseEntity<ApiError> transferenciaInvalida(TransferenciaInvalidaException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
+    }
+
     @ExceptionHandler(SaldoInsuficienteException.class)
     public ResponseEntity<ApiError> saldoInsuficiente(SaldoInsuficienteException e) {
         // 422: a requisicao esta bem formada, mas a regra de negocio recusa.
