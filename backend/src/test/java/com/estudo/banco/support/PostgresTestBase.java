@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.math.BigDecimal;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -18,6 +19,15 @@ import org.testcontainers.utility.DockerImageName;
  * reaproveita o contexto entre as subclasses, ja que a configuracao e identica.
  */
 @SpringBootTest
+// O publisher agendado roda de 1s em 1s em producao. Na maior parte da suite
+// ele consumiria eventos no meio das asercoes sobre published = false, e o
+// resultado passaria a depender do relogio - por isso vem desligado por padrao.
+//
+// Isto e @TestPropertySource, e NAO @DynamicPropertySource, de proposito:
+// propriedades dinamicas tem precedencia maior e nao podem ser sobrescritas
+// pela subclasse, entao OutboxScheduledTest nao conseguiria religar o
+// agendador para testar justamente o caminho agendado.
+@TestPropertySource(properties = "banco.outbox.auto-publish=false")
 public abstract class PostgresTestBase {
 
     @SuppressWarnings("rawtypes")
@@ -33,11 +43,6 @@ public abstract class PostgresTestBase {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        // O publisher agendado roda de 1s em 1s em producao. Nos testes ele
-        // consumiria eventos no meio das asercoes sobre published = false, e o
-        // resultado dependeria do relogio. Aqui o publisher so roda quando um
-        // teste o chama explicitamente.
-        registry.add("banco.outbox.auto-publish", () -> "false");
     }
 
     @Autowired

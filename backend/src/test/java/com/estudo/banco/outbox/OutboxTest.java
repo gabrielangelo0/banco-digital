@@ -68,7 +68,13 @@ class OutboxTest extends PostgresTestBase {
         TransferResult r = transfers.execute(new TransferCommand(
                 origem, destino, new BigDecimal("30.00"), UUID.randomUUID().toString()));
 
-        int publicados = publisher.publishPending();
+        // Drena em laco: findTop100 devolve os eventos MAIS ANTIGOS, e outros
+        // testes da suite deixam centenas pendentes no schema compartilhado.
+        // Sem o laco, este teste passava so pela ordem alfabetica das classes.
+        int publicados = 0;
+        for (int rodada = publisher.publishPending(); rodada > 0; rodada = publisher.publishPending()) {
+            publicados += rodada;
+        }
 
         assertThat(publicados).isGreaterThanOrEqualTo(1);
         assertThat(eventosDa(r.transferId(), true)).isEqualTo(1);
@@ -82,7 +88,9 @@ class OutboxTest extends PostgresTestBase {
         transfers.execute(new TransferCommand(
                 origem, destino, new BigDecimal("30.00"), UUID.randomUUID().toString()));
 
-        publisher.publishPending();
+        while (publisher.publishPending() > 0) {
+            // drena tudo que estiver pendente, inclusive backlog de outros testes
+        }
         int segundaRodada = publisher.publishPending();
 
         assertThat(segundaRodada).isZero();

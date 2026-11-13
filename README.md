@@ -120,6 +120,18 @@ Há ainda a **evidência do deadlock acontecendo** quando a ordenação é remov
 - **Constraints como última linha de defesa:** saldo não negativo, valor positivo, origem
   diferente de destino, e sinal do lançamento coerente com a direção.
 
+## Limitações conhecidas
+
+Levantadas por uma revisão independente do código e documentadas em
+[docs/GUIA-FLUXO-BANCARIO.md](docs/GUIA-FLUXO-BANCARIO.md) (seção 10): a chave de idempotência
+não compara a impressão digital da requisição; ela é gravada no fim da transação em vez de
+reservada no início (um retry legítimo pode receber 422 para uma transferência que funcionou);
+e estouro de `lock_timeout` vira 500 sem corpo de erro. Nenhuma perde dinheiro no razão.
+
+A mesma revisão encontrou um bug que **foi corrigido**: auto-invocação de `@Transactional` no
+agendador do outbox, que fazia o caminho agendado rodar sem transação e nunca drenar. Coberto
+agora por `OutboxScheduledTest`, que exercita o agendador de verdade.
+
 ## O que ficaria diferente em produção
 
 Particionamento do razão por período, snapshot periódico de saldo, limite de taxa por conta,

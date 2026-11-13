@@ -403,3 +403,52 @@ Guardar com 4 e arredondar na apresentação evita erro sistemático.
 particionamento do razão por período, snapshot periódico de saldo, limite
 de taxa por conta, trilha de auditoria imutável, e reconciliação diária
 batendo o razão contra o extrato do banco liquidante.
+
+---
+
+## 10. Limitações conhecidas — e o que você diria sobre elas
+
+Uma revisão independente do código encontrou estes pontos. Nenhum deles perde dinheiro no
+razão, mas três **mentem para o cliente** sobre o que aconteceu — e saber apontá-los vale mais
+numa entrevista do que fingir que o código é perfeito.
+
+### Um bug que existia e foi corrigido: auto-invocação no agendador
+
+O `OutboxPublisher` chamava `this.publishPending()` de dentro da própria classe. Como
+`@Transactional` é proxy, **o caminho agendado rodava sem transação nenhuma**: o repositório
+devolvia a entidade já desanexada e `marcarPublicado()` escrevia num objeto morto. Nenhum
+`UPDATE` era emitido, o outbox nunca drenava, e a mesma notificação era reenviada a cada
+segundo.
+
+Repare na ironia útil: é exatamente a pegadinha descrita na seção 2 deste guia, cometida duas
+classes adiante. A suíte não pegava porque os testes injetavam o bean — ou seja, o proxy —
+onde a transação existe. O que faltava era um teste do caminho que roda de verdade.
+`OutboxScheduledTest` liga o agendador e espera; ele falhou por 15 segundos antes da correção.
+
+> **Se perguntarem "como você testa código agendado?":** testando o caminho que a produção
+> usa, não o método que ele chama. A diferença entre os dois foi um bug inteiro.
+
+### O que continua em aberto
+
+**1. A chave de idempotência não carrega impressão digital da requisição.**
+Hoje, mandar a mesma chave com um payload diferente devolve 200 com a resposta antiga e **não
+move o dinheiro novo**. Com UUID v4 gerado pelo app isso é inalcançável, mas vira grave se o
+cliente usar chave determinística (número do pedido). O certo é gravar um hash de
+origem+destino+valor junto da chave e, no replay, comparar: divergiu → 422
+`IDEMPOTENCY_KEY_REUSED`. É o que o Stripe faz.
+
+**2. A chave é gravada no fim da transação, não reservada no início.**
+Cenário: conta com R$ 100, o app manda R$ 100, o timeout estoura e ele reenvia a mesma chave
+enquanto a primeira ainda está em voo. A segunda espera o lock, a primeira commita e zera o
+saldo, e aí a segunda recebe **422 saldo insuficiente** — para uma transferência que
+funcionou. O cliente é informado de que o dinheiro não saiu, e saiu. O conserto é inserir a
+linha de `idempotency_keys` *antes* de travar as contas e atualizá-la com o resultado antes do
+commit: a colisão passa a acontecer antes de qualquer regra de negócio.
+
+**3. Estouro de `lock_timeout` vira 500 sem corpo de erro.**
+`CannotAcquireLockException` (SQLState 55P03) não tem handler. Nada foi escrito e o retry é
+seguro, mas escolher `lock_timeout` para "falhar rápido" e então falhar com 500 genérico
+desperdiça a decisão. Deveria ser 409 ou 503 com código de erro e indicação de retry.
+
+> **Se perguntarem "o que você faria diferente?":** esses três, nesta ordem. Mostrar que você
+> sabe onde o próprio código ainda mente é mais convincente que qualquer defesa.
