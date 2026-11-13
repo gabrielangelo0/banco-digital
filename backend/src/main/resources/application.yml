@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: banco
+  datasource:
+    url: jdbc:postgresql://localhost:5432/banco
+    username: banco
+    password: banco
+    hikari:
+      # lock_timeout no Postgres: esperar para sempre por um lock e pior do que
+      # falhar rapido. A ordenacao de locks torna o deadlock impossivel, mas uma
+      # transacao lenta ainda pode segurar a linha; aqui ela desiste em 3s.
+      connection-init-sql: "SET lock_timeout = '3000ms'"
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
