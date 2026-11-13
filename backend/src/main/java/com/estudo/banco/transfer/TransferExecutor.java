@@ -7,6 +7,8 @@ import com.estudo.banco.error.TransferenciaInvalidaException;
 import com.estudo.banco.idempotency.IdempotencyService;
 import com.estudo.banco.ledger.Entry;
 import com.estudo.banco.ledger.EntryRepository;
+import com.estudo.banco.outbox.OutboxService;
+import com.estudo.banco.outbox.TransferCompletedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -38,13 +40,16 @@ public class TransferExecutor {
     private final EntryRepository entries;
     private final TransferRepository transfers;
     private final IdempotencyService idempotency;
+    private final OutboxService outbox;
 
     public TransferExecutor(AccountRepository accounts, EntryRepository entries,
-                            TransferRepository transfers, IdempotencyService idempotency) {
+                            TransferRepository transfers, IdempotencyService idempotency,
+                            OutboxService outbox) {
         this.accounts = accounts;
         this.entries = entries;
         this.transfers = transfers;
         this.idempotency = idempotency;
+        this.outbox = outbox;
     }
 
     @Transactional
@@ -98,6 +103,11 @@ public class TransferExecutor {
         // Na MESMA transacao: se a chave colidir, o debito e o credito somem
         // junto com ela.
         idempotency.registrar(cmd.idempotencyKey(), resultado);
+
+        // Tambem na mesma transacao. Nao existe "avisei sobre uma transferencia
+        // que nao aconteceu", nem "aconteceu e ninguem soube".
+        outbox.registrar(TransferCompletedEvent.TYPE, new TransferCompletedEvent(
+                transferencia.getId(), origem.getId(), destino.getId(), valor));
 
         log.info("transferencia concluida transferId={} origem={} destino={} valor={}",
                 transferencia.getId(), origem.getId(), destino.getId(), valor);

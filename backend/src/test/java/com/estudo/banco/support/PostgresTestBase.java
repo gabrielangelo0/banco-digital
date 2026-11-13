@@ -33,6 +33,11 @@ public abstract class PostgresTestBase {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // O publisher agendado roda de 1s em 1s em producao. Nos testes ele
+        // consumiria eventos no meio das asercoes sobre published = false, e o
+        // resultado dependeria do relogio. Aqui o publisher so roda quando um
+        // teste o chama explicitamente.
+        registry.add("banco.outbox.auto-publish", () -> "false");
     }
 
     @Autowired
