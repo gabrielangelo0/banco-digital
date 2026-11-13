@@ -3,6 +3,8 @@ package com.estudo.banco.support;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.math.BigDecimal;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -35,4 +37,23 @@ public abstract class PostgresTestBase {
 
     @Autowired
     protected JdbcTemplate jdbc;
+
+    /**
+     * Cria uma conta nova e devolve o id.
+     *
+     * O container e o schema sao compartilhados por toda a suite, entao nenhum
+     * teste pode depender das contas semeadas pela migracao: um teste de
+     * concorrencia que roda antes mudaria o saldo que outro espera encontrar.
+     * Cada teste cria o que precisa.
+     */
+    protected Long novaConta(String titular, String saldo) {
+        return jdbc.queryForObject(
+                "INSERT INTO accounts (holder_name, balance) VALUES (?, ?) RETURNING id",
+                Long.class, titular, new BigDecimal(saldo));
+    }
+
+    protected BigDecimal saldoDe(Long contaId) {
+        return jdbc.queryForObject(
+                "SELECT balance FROM accounts WHERE id = ?", BigDecimal.class, contaId);
+    }
 }
