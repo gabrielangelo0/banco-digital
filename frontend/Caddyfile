@@ -1,0 +1,72 @@
+# ---------------------------------------------------------------------------
+# Borda da aplicacao.
+#
+# Este container faz duas coisas: serve o build estatico do React e repassa
+# /api para o backend pela rede interna do compose. O navegador ve UMA origem
+# so, o que mata CORS por construcao e mantem o SSE na mesma origem do app.
+#
+# SITE_ADDRESS decide o modo:
+#   :80                      -> HTTP puro, para validar a stack localmente
+#   banco.seudominio.com     -> o Caddy emite e renova o certificado sozinho
+#
+# Sem `email` global o Let's Encrypt emite normalmente; voce apenas nao recebe
+# aviso de expiracao (o Caddy renova sem depender disso). Para receber, some
+# um bloco no topo deste arquivo:  { email voce@dominio.com }
+# ---------------------------------------------------------------------------
+
+{$SITE_ADDRESS} {
+	header {
+		# Nao anunciar o servidor nem deixar o navegador adivinhar tipo de
+		# arquivo - duas linhas, dois vetores de ataque menos.
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	# O Vite emite os bundles com hash no nome, entao eles podem ser cacheados
+	# para sempre: um deploy novo gera nomes novos.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# O service worker e a excecao: se ele for cacheado, o usuario fica preso
+	# numa versao antiga do app para sempre.
+	header /sw.js Cache-Control "no-cache"
+
+	# -----------------------------------------------------------------------
+	# SSE - a armadilha que quebra em silencio.
+	#
+	# Um proxy que acumula a resposta antes de repassar transforma um fluxo de
+	# eventos em nada: o navegador conecta, o backend manda o evento, e o proxy
+	# segura tudo esperando o fim de um corpo que nunca termina. Nao da erro,
+	# nao aparece no log, a conexao fica aberta. Simplesmente nao chega.
+	#
+	# flush_interval -1 manda repassar cada byte na hora.
+	#
+	# O emitter do backend tem timeout de 30 minutos, e o reverse_proxy do
+	# Caddy nao impoe timeout de resposta - a conexao vive o tempo que o
+	# backend quiser.
+	# -----------------------------------------------------------------------
+	@sse path /api/notifications/stream
+	handle @sse {
+		reverse_proxy backend:8080 {
+			flush_interval -1
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		# A compressao fica AQUI, nao no nivel do site, de proposito: comprimir
+		# e acumular bytes, e acumular bytes e exatamente o que nao pode
+		# acontecer com o stream acima.
+		encode zstd gzip
+
+		root * /srv
+		# SPA: rota desconhecida devolve o index e o roteamento acontece no
+		# navegador.
+		try_files {path} /index.html
+		file_server
+	}
+}

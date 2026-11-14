@@ -19,5 +19,9 @@ dist-ssr/
 # Superpowers scratch
 .superpowers/
 
-# Variáveis de ambiente locais
+# Variáveis de ambiente locais e de servidor.
+# Os .example são versionados de propósito; os reais, nunca.
 .env
+.env.*
+!.env.example
+!.env.prod.example

@@ -36,6 +36,14 @@ cd backend && ./mvnw test
 
 ---
 
+## Subindo num servidor
+
+A stack de produção é outra: `docker-compose.prod.yml` sobe backend, Postgres e um
+container de borda com Caddy, que serve o build do React e faz proxy do `/api` com
+HTTPS automático. Só a borda tem porta publicada.
+
+Passo a passo, verificação e operação em **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
 ## O fluxo de uma transferência
 
 ```

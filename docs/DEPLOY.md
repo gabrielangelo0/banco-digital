@@ -1,0 +1,283 @@
+# Deploy na VPS
+
+Sobe a aplicação inteira em Docker Compose, com HTTPS automático e sem expor
+banco nem backend à internet.
+
+---
+
+## 1. O que esta stack sobe
+
+```
+                      ┌──────────────────────────────────────────┐
+   internet ─── 443 ──▶│  web   (Caddy)                          │
+                      │  • serve o build estático do React       │
+                      │  • certificado Let's Encrypt automático  │
+                      └───────────────┬──────────────────────────┘
+                                      │  /api/*   (rede interna)
+                      ┌───────────────▼──────────────────────────┐
+                      │  backend  (Spring Boot, JRE 21)          │
+                      │  • sem porta publicada                   │
+                      └───────────────┬──────────────────────────┘
+                                      │  5432     (rede interna)
+                      ┌───────────────▼──────────────────────────┐
+                      │  postgres  (volume persistente)          │
+                      │  • sem porta publicada                   │
+                      └──────────────────────────────────────────┘
+```
+
+**Só o container de borda tem porta publicada.** O backend e o Postgres existem
+apenas na rede interna do compose — não há como alcançar o `5432` ou o `8080` de
+fora, nem por engano nem por firewall mal configurado. O `docker-compose.yml` da
+raiz (que publica o `5432` em `127.0.0.1`) é para **desenvolvimento**, não para
+servidor; na VPS use sempre o `docker-compose.prod.yml`.
+
+| Arquivo | Papel |
+|---|---|
+| `docker-compose.prod.yml` | A stack de produção |
+| `backend/Dockerfile` | Build Maven → imagem JRE, usuário sem privilégio |
+| `frontend/Dockerfile` | Build Vite → imagem Caddy com o estático dentro |
+| `frontend/Caddyfile` | Roteamento, HTTPS, cache e o `flush_interval` do SSE |
+| `.env.prod.example` | Modelo das variáveis — copie, não edite |
+| `scripts/reset-demo.sh` | Devolve a demo ao estado inicial |
+
+---
+
+## 2. Pré-requisitos
+
+Na VPS:
+
+- **Docker Engine + plugin Compose.** `docker compose version` precisa responder.
+- **Portas 80 e 443 abertas.** A 80 não é opcional: o Let's Encrypt usa ela para
+  provar que o domínio é seu. Se o provedor tiver firewall próprio (Security
+  Group, Cloud Firewall), libere nos dois lugares.
+- **Memória:** 2 GB confortável, 1 GB suficiente. A JVM está limitada a 75% do
+  cgroup; o build Maven é a parte pesada e pode ser feito em outra máquina
+  (ver §7).
+
+No DNS, **antes de subir**:
+
+- Um registro `A` do seu domínio apontando para o IP da VPS. Se a emissão do
+  certificado rodar antes do DNS propagar, o Let's Encrypt falha e tem limite de
+  tentativas por semana — confirme primeiro:
+
+```bash
+dig +short banco.seudominio.com
+```
+
+---
+
+## 3. Subir
+
+### 3.1 Clonar
+
+O repositório é privado, então o `git clone` precisa de credencial. A forma
+limpa é uma **deploy key** (chave que só lê este repositório, e só nesta VPS):
+
+```bash
+ssh-keygen -t ed25519 -C "vps-banco-digital" -f ~/.ssh/banco_deploy -N ""
+cat ~/.ssh/banco_deploy.pub
+```
+
+Cole a chave pública em **Settings → Deploy keys → Add deploy key** no
+repositório, sem marcar *Allow write access*. Depois:
+
+```bash
+GIT_SSH_COMMAND="ssh -i ~/.ssh/banco_deploy" git clone git@github.com:gabriel-rtdata/banco-digital.git
+```
+
+### 3.2 Configurar
+
+```bash
+cd banco-digital
+cp .env.prod.example .env.prod
+```
+
+Gere a senha em vez de inventar uma, e escreva-a no `.env.prod`:
+
+```bash
+openssl rand -base64 32
+```
+
+O `.env.prod` precisa de quatro variáveis:
+
+| Variável | Valor |
+|---|---|
+| `SITE_ADDRESS` | O domínio, ex. `banco.seudominio.com`. Com domínio, o Caddy emite o certificado sozinho |
+| `POSTGRES_DB` | `banco` |
+| `POSTGRES_USER` | `banco` |
+| `POSTGRES_PASSWORD` | A senha gerada acima |
+
+O compose **aborta** se qualquer uma faltar — uma variável esquecida não vira
+string vazia silenciosamente.
+
+### 3.3 Subir
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+O primeiro build baixa as dependências Maven e do npm; conte alguns minutos. Os
+seguintes reaproveitam as camadas de dependência.
+
+---
+
+## 4. Verificar
+
+Não confie em "subiu sem erro". Três checagens, em ordem de profundidade.
+
+**Os três containers de pé, o backend saudável:**
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod ps
+```
+
+`backend` precisa aparecer como `healthy`, não apenas `running`.
+
+**A API responde através do proxy:**
+
+```bash
+curl -s https://banco.seudominio.com/api/accounts
+```
+
+Duas contas com saldo. Se vier o HTML do `index.html` em vez de JSON, o
+roteamento do `/api` não pegou.
+
+**O SSE realmente transmite** — esta é a checagem que importa, porque é a que
+falha em silêncio:
+
+```bash
+curl -N -s https://banco.seudominio.com/api/notifications/stream?accountId=1
+```
+
+Deve imprimir, **na hora**, um evento `ready`:
+
+```
+event:ready
+data:{"accountId":1}
+```
+
+Se o comando ficar pendurado sem imprimir nada, o stream está sendo acumulado
+por algum proxy no caminho. O `flush_interval -1` do `Caddyfile` resolve isso
+para o Caddy; se você puser outro proxy na frente (nginx, Cloudflare, um load
+balancer do provedor), ele precisa do equivalente — no nginx,
+`proxy_buffering off`. Deixe o `curl -N` aberto, faça uma transferência pelo
+app noutra aba e veja o evento `transfer` chegar.
+
+Por último, abra o app no celular. Se o HTTPS estiver válido, o navegador
+oferece instalar — é o PWA. Sem HTTPS não há service worker, e sem service
+worker não há PWA.
+
+---
+
+## 5. Operar
+
+**Ver log** (JSON estruturado, um documento por linha):
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f backend
+```
+
+Para ler com olho humano, com `jq` instalado:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs --no-log-prefix backend | jq -r '"\(.timestamp) \(.level) \(.correlationId // "-") \(.message)"'
+```
+
+**Atualizar para a versão nova:**
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+O Flyway aplica as migrações pendentes na subida. O volume do Postgres não é
+tocado: os dados sobrevivem ao redeploy.
+
+**Backup do banco** — faça isto antes de qualquer alteração de schema:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T postgres \
+  pg_dump -U banco -d banco | gzip > backup-$(date +%F).sql.gz
+```
+
+**Restaurar:**
+
+```bash
+gunzip -c backup-2026-11-14.sql.gz | docker compose -f docker-compose.prod.yml \
+  --env-file .env.prod exec -T postgres psql -U banco -d banco
+```
+
+**Restaurar a demo** (saldos de volta ao início, movimentação apagada):
+
+```bash
+./scripts/reset-demo.sh
+```
+
+**Parar:**
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod down
+```
+
+`down` preserva os volumes. **`down -v` apaga o banco e os certificados** — e
+refazer os certificados conta contra o limite semanal do Let's Encrypt.
+
+---
+
+## 6. Quando algo der errado
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| Certificado não emite | DNS ainda não propagou, ou porta 80 fechada | `dig +short seu.dominio` e `curl -I http://seu.dominio`. Veja `logs web` |
+| `bind: address already in use` | Já existe um nginx/Apache na 80 | `sudo ss -lptn 'sport = :80'` e pare o serviço, ou ponha o Caddy atrás dele |
+| `curl -N` do SSE fica mudo | Proxy acumulando a resposta | Veja §4. Outro proxy na frente precisa de buffering desligado |
+| Backend reinicia em loop | Senha ou URL do banco errada | `logs backend`. Confira que `DB_URL` aponta para o host `postgres`, não `localhost` |
+| `relation "accounts" does not exist` | Flyway não rodou | `logs backend` — procure a linha do Flyway. `ddl-auto` é `validate`: o schema vem da migração, não do Hibernate |
+| HTTP 500 sem corpo numa transferência | `lock_timeout` de 3s estourou sob concorrência | Limitação conhecida, documentada no guia de estudo |
+| Build Maven estoura memória | VPS pequena compilando | Ver §7 |
+
+---
+
+## 7. Build fora da VPS
+
+Numa VPS de 1 GB o build Maven é a única etapa que aperta. Dá para construir a
+imagem noutra máquina e enviar apenas o resultado:
+
+```bash
+# na máquina de desenvolvimento
+docker build -t banco-backend:latest ./backend
+docker save banco-backend:latest | gzip | \
+  ssh usuario@vps 'gunzip | docker load'
+```
+
+Na VPS, troque `build: {context: ./backend}` por `image: banco-backend:latest`
+no `docker-compose.prod.yml` do servidor.
+
+---
+
+## 8. O que este deploy NÃO tem
+
+Dito com clareza, porque um deploy honesto declara seus limites:
+
+- **Autenticação.** Não-objetivo declarado do projeto: o foco é consistência de
+  transações, não gestão de identidade. Num demo público, qualquer visitante
+  pode mover o dinheiro das duas contas de demonstração. O
+  `scripts/reset-demo.sh` existe por isso, e pode ir para o cron.
+- **Rate limiting.** O Caddy padrão não traz. Para um demo de portfólio, o
+  volume não justifica; se justificar, a Cloudflare na frente resolve sem
+  mexer na stack.
+- **Backup automático.** O comando de `pg_dump` está na §5, mas nada o agenda.
+  Para um demo, o `reset-demo.sh` cobre a necessidade real.
+- **Observabilidade além do log.** O log sai em JSON com `correlationId`,
+  pronto para um agregador — mas não há agregador, nem métrica, nem alerta.
+- **Escala horizontal.** O compose roda **uma** instância do backend, e precisa
+  ser assim: os inscritos de SSE vivem em memória no processo. Com duas réplicas,
+  uma transferência processada na réplica A não notifica quem está conectado na
+  réplica B — a transferência acontece certo, a notificação não chega. A saída é
+  Redis pub/sub entre as instâncias; está na lista do README, não implementado.
+  Não suba `--scale backend=2`.
+- **Zero-downtime deploy.** `up -d --build` derruba e sobe o backend. São
+  segundos, e para um demo isso é aceitável.
+
+Nenhum destes é descuido: são escolhas de escopo, e é assim que devem ser
+apresentadas.

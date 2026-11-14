@@ -1,0 +1,83 @@
+# ---------------------------------------------------------------------------
+# Stack de producao.
+#
+# O docker-compose.yml da raiz sobe SO o Postgres, para desenvolver com o
+# backend rodando na maquina. Este arquivo sobe a aplicacao inteira.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Topologia: so o container de borda tem porta publicada. O backend e o
+# Postgres existem apenas na rede interna do compose - nao ha como alcancar o
+# 5432 ou o 8080 de fora, nem por engano, nem por firewall mal configurado.
+#
+#   internet --> web (80/443) --> backend (8080) --> postgres (5432)
+# ---------------------------------------------------------------------------
+
+# Nome de projeto explicito. Sem isto, o compose deriva o nome da PASTA - e
+# este arquivo e o docker-compose.yml de desenvolvimento cairiam no mesmo
+# projeto, disputando o servico `postgres`: subir a producao recriaria o
+# container de desenvolvimento sem avisar.
+name: banco-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      # `:?` faz o compose ABORTAR se a variavel nao estiver definida. Sem
+      # isso, uma variavel esquecida viraria string vazia e o banco subiria com
+      # senha vazia - o tipo de falha que ninguem percebe ate ser tarde.
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env.prod}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env.prod}
+    volumes:
+      # O dado do banco vive no volume, nao no container. `docker compose down`
+      # nao apaga nada; so `down -v` apaga.
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      # `postgres` e o nome do servico: o DNS interno do compose resolve.
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        # Nao "depois que o container existir", mas "depois que o banco aceita
+        # conexao". O Flyway roda na subida e falha se o banco nao estiver de
+        # pe; esperar o healthcheck evita um restart desnecessario.
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?defina SITE_ADDRESS no .env.prod}
+    ports:
+      - "80:80"
+      - "443:443"
+      # HTTP/3. Se a VPS nao liberar UDP, remova esta linha: o Caddy cai para
+      # HTTP/2 sem reclamar.
+      - "443:443/udp"
+    volumes:
+      # Os certificados vivem aqui. Perder este volume faz o Caddy pedir tudo
+      # de novo ao Let's Encrypt, que tem limite de emissoes por semana.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

@@ -1,3 +1,8 @@
+# Apenas o Postgres, para desenvolver com o backend rodando na maquina.
+# A stack completa esta em docker-compose.prod.yml. Nome de projeto
+# explicito para que os dois nunca disputem o mesmo container.
+name: banco-dev
+
 services:
   postgres:
     image: postgres:16-alpine
