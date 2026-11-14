@@ -61,14 +61,14 @@ Casos que a spec implica mas que nenhuma tarefa exercitaria por padrão. Cada li
 
 ### Task 1: Guia de estudo do fluxo bancário
 
-Entregue **antes** de qualquer código, para que o Gabriel leia enquanto o resto é construído.
+Entregue **antes** de qualquer código: é o documento que justifica cada decisão que vem depois.
 
 **Arquivos:**
 - Criar: `docs/GUIA-FLUXO-BANCARIO.md`
 
 **Interfaces:**
 - Consome: nada.
-- Produz: nada em código. É o roteiro de conversa da entrevista.
+- Produz: nada em código. É o documento de referência do projeto.
 
 - [ ] **Passo 1: Escrever o guia** cobrindo, em ordem: o que é razão de dupla entrada e por que saldo não é um campo que se edita; as quatro camadas (atomicidade, concorrência, idempotência, consistência eventual) com o sintoma que cada uma previne; o que é deadlock, por que ordenar os locks resolve, e o diálogo de duas threads que o provoca; lock pessimista versus otimista com o critério de escolha; por que idempotência não sai de lock; outbox e por que transferência interbancária não cabe numa transação; por que `double` não serve para dinheiro. Cada seção termina com a pergunta de entrevista que ela responde.
 
@@ -235,7 +235,7 @@ git add backend && git commit -m "feat: transferência atômica com razão de du
 
 ### Task 5: Concorrência — lock ordenado contra lost update e deadlock
 
-A tarefa que sustenta a entrevista.
+A tarefa central do projeto.
 
 **Arquivos:**
 - Modificar: `transfer/TransferService.java` (configurar `lock_timeout`)
@@ -419,7 +419,7 @@ git add backend && git commit -m "feat: logs estruturados em JSON com correlatio
 - Consome: `GET /api/accounts/{id}`, `GET /api/accounts/{id}/statement`.
 - Produz: `fetchAccount(id): Promise<Account>`, `fetchStatement(id): Promise<Entry[]>`, `postTransfer(req, idempotencyKey): Promise<TransferResponse>`.
 
-Nota: esta tarefa e a 10 são verificadas visualmente no navegador, não por suíte automatizada. O prazo de 2 horas não comporta montar Vitest + Testing Library, e o risco de um botão desalinhado é incomparavelmente menor que o de um saldo errado. Decisão consciente, registrada aqui para que não pareça esquecimento.
+Nota: esta tarefa e a 10 são verificadas visualmente no navegador, não por suíte automatizada. O esforço de teste foi concentrado no backend de propósito: o risco de um botão desalinhado é incomparavelmente menor que o de um saldo errado. Decisão consciente, registrada aqui para que não pareça esquecimento.
 
 - [ ] **Passo 1: Scaffold** do Vite com React + TypeScript, Tailwind configurado com as cores da spec, `vite-plugin-pwa` com `registerType: 'autoUpdate'`, e proxy de `/api` para `localhost:8080`.
 

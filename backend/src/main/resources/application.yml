@@ -2,9 +2,12 @@ spring:
   application:
     name: banco
   datasource:
-    url: jdbc:postgresql://localhost:5432/banco
-    username: banco
-    password: banco
+    # Credenciais vêm do ambiente. Os defaults servem apenas ao Postgres
+    # descartável do docker-compose local; em qualquer outro lugar, defina
+    # DB_URL, DB_USER e DB_PASSWORD. Ver .env.example.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/banco}
+    username: ${DB_USER:banco}
+    password: ${DB_PASSWORD:banco}
     hikari:
       # lock_timeout no Postgres: esperar para sempre por um lock e pior do que
       # falhar rapido. A ordenacao de locks torna o deadlock impossivel, mas uma
