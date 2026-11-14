@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/api/client.ts","./src/components/balancecard.tsx","./src/components/statementlist.tsx","./src/components/toast.tsx","./src/components/transfersheet.tsx","./src/components/formato.ts","./src/hooks/usenotifications.ts"],"version":"5.9.3"}
