@@ -1,0 +1,12 @@
+{
+  "name": "Banco Digital",
+  "short_name": "Banco",
+  "description": "Banco digital de estudo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#820AD1",
+  "theme_color": "#820AD1",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

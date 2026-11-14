@@ -25,11 +25,11 @@
 
 Casos que a spec implica mas que nenhuma tarefa exercitaria por padrão. Cada linha teve seu teste atribuído à tarefa dona do código.
 
-1. **Valor zero ou negativo** — `POST /transfers` com `amount <= 0` deve retornar 400 e não criar lançamento nenhum. (Tarefa 4)
-2. **Origem igual ao destino** — transferir de uma conta para ela mesma deve retornar 400. Sem isso o lock ordenado trava na mesma linha e a reconciliação passa a mentir. (Tarefa 4)
-3. **Conta inexistente** — id que não existe deve retornar 404 com corpo de erro, nunca 500 ou `NullPointerException`. (Tarefa 4)
-4. **Precisão monetária** — `10.999` deve ser rejeitado como entrada inválida, não arredondado em silêncio. (Tarefa 4)
-5. **`Idempotency-Key` ausente ou em branco** — deve retornar 400 explicando o header obrigatório, não aceitar a transferência sem proteção. (Tarefa 6)
+1. **Valor zero ou negativo** — `POST /transfers` com `amount <= 0` deve retornar 400 e não criar lançamento nenhum. (Task 4)
+2. **Origem igual ao destino** — transferir de uma conta para ela mesma deve retornar 400. Sem isso o lock ordenado trava na mesma linha e a reconciliação passa a mentir. (Task 4)
+3. **Conta inexistente** — id que não existe deve retornar 404 com corpo de erro, nunca 500 ou `NullPointerException`. (Task 4)
+4. **Precisão monetária** — `10.999` deve ser rejeitado como entrada inválida, não arredondado em silêncio. (Task 4)
+5. **`Idempotency-Key` ausente ou em branco** — deve retornar 400 explicando o header obrigatório, não aceitar a transferência sem proteção. (Task 6)
 
 ---
 
@@ -59,16 +59,16 @@ Casos que a spec implica mas que nenhuma tarefa exercitaria por padrão. Cada li
 
 ---
 
-### Tarefa 1: Guia de estudo do fluxo bancário
+### Task 1: Guia de estudo do fluxo bancário
 
-Entregue **antes** de qualquer código, para que o Gabriel leia enquanto o resto é construído.
+Entregue **antes** de qualquer código: é o documento que justifica cada decisão que vem depois.
 
 **Arquivos:**
 - Criar: `docs/GUIA-FLUXO-BANCARIO.md`
 
 **Interfaces:**
 - Consome: nada.
-- Produz: nada em código. É o roteiro de conversa da entrevista.
+- Produz: nada em código. É o documento de referência do projeto.
 
 - [ ] **Passo 1: Escrever o guia** cobrindo, em ordem: o que é razão de dupla entrada e por que saldo não é um campo que se edita; as quatro camadas (atomicidade, concorrência, idempotência, consistência eventual) com o sintoma que cada uma previne; o que é deadlock, por que ordenar os locks resolve, e o diálogo de duas threads que o provoca; lock pessimista versus otimista com o critério de escolha; por que idempotência não sai de lock; outbox e por que transferência interbancária não cabe numa transação; por que `double` não serve para dinheiro. Cada seção termina com a pergunta de entrevista que ela responde.
 
@@ -81,7 +81,7 @@ git commit -m "docs: guia do fluxo bancário e das quatro camadas de consistênc
 
 ---
 
-### Tarefa 2: Esqueleto do backend que sobe
+### Task 2: Esqueleto do backend que sobe
 
 **Arquivos:**
 - Criar: `backend/pom.xml`, `backend/mvnw`, `backend/.mvn/wrapper/maven-wrapper.properties`
@@ -131,7 +131,7 @@ git add backend docker-compose.yml && git commit -m "feat: esqueleto Spring Boot
 
 ---
 
-### Tarefa 3: Contas e extrato
+### Task 3: Contas e extrato
 
 **Arquivos:**
 - Criar: `account/Account.java`, `account/AccountRepository.java`, `account/AccountController.java`, `account/dto/AccountResponse.java`
@@ -140,7 +140,7 @@ git add backend docker-compose.yml && git commit -m "feat: esqueleto Spring Boot
 - Teste: `backend/src/test/java/com/estudo/banco/account/AccountControllerTest.java`
 
 **Interfaces:**
-- Consome: `PostgresTestBase` (Tarefa 2).
+- Consome: `PostgresTestBase` (Task 2).
 - Produz:
   - `Account` com `getId(): Long`, `getBalance(): BigDecimal`, `getVersion(): Long`, `debit(BigDecimal)`, `credit(BigDecimal)` — ambos lançam `SaldoInsuficienteException` quando aplicável.
   - `Direction` — enum `DEBIT`, `CREDIT`.
@@ -170,7 +170,7 @@ git add backend && git commit -m "feat: contas, razão e endpoint de extrato"
 
 ---
 
-### Tarefa 4: Transferência atômica com dupla entrada
+### Task 4: Transferência atômica com dupla entrada
 
 O núcleo. Aqui vivem três dos cinco itens do Foco de Revisão.
 
@@ -181,7 +181,7 @@ O núcleo. Aqui vivem três dos cinco itens do Foco de Revisão.
 - Teste: `backend/src/test/java/com/estudo/banco/transfer/TransferServiceTest.java`
 
 **Interfaces:**
-- Consome: `AccountRepository.findByIdForUpdate`, `EntryRepository`, `Account.debit/credit` (Tarefa 3).
+- Consome: `AccountRepository.findByIdForUpdate`, `EntryRepository`, `Account.debit/credit` (Task 3).
 - Produz:
   - `TransferService.execute(TransferCommand cmd): TransferResult`, anotado `@Transactional`.
   - `TransferCommand(Long sourceAccountId, Long targetAccountId, BigDecimal amount, String idempotencyKey)`.
@@ -233,9 +233,9 @@ git add backend && git commit -m "feat: transferência atômica com razão de du
 
 ---
 
-### Tarefa 5: Concorrência — lock ordenado contra lost update e deadlock
+### Task 5: Concorrência — lock ordenado contra lost update e deadlock
 
-A tarefa que sustenta a entrevista.
+A tarefa central do projeto.
 
 **Arquivos:**
 - Modificar: `transfer/TransferService.java` (configurar `lock_timeout`)
@@ -243,7 +243,7 @@ A tarefa que sustenta a entrevista.
 - Teste: `backend/src/test/java/com/estudo/banco/transfer/TransferConcurrencyTest.java`
 
 **Interfaces:**
-- Consome: `TransferService.execute` (Tarefa 4).
+- Consome: `TransferService.execute` (Task 4).
 - Produz: nada novo em assinatura. A garantia é comportamental.
 
 - [ ] **Passo 1: Escrever os testes que falham**
@@ -282,7 +282,7 @@ git add backend && git commit -m "test: provas de concorrência — lost update 
 
 ---
 
-### Tarefa 6: Idempotência
+### Task 6: Idempotência
 
 **Arquivos:**
 - Criar: `idempotency/IdempotencyKey.java`, `idempotency/IdempotencyKeyRepository.java`, `idempotency/IdempotencyService.java`
@@ -291,7 +291,7 @@ git add backend && git commit -m "test: provas de concorrência — lost update 
 - Teste: `backend/src/test/java/com/estudo/banco/transfer/IdempotencyTest.java`
 
 **Interfaces:**
-- Consome: `TransferService.execute` (Tarefa 4).
+- Consome: `TransferService.execute` (Task 4).
 - Produz: `IdempotencyService.findExisting(String key): Optional<TransferResult>`.
 
 - [ ] **Passo 1: Escrever os testes que falham**
@@ -326,7 +326,7 @@ git add backend && git commit -m "feat: idempotência por chave com replay da re
 
 ---
 
-### Tarefa 7: Outbox e notificação por SSE
+### Task 7: Outbox e notificação por SSE
 
 **Arquivos:**
 - Criar: `outbox/OutboxEvent.java`, `outbox/OutboxEventRepository.java`, `outbox/OutboxPublisher.java`
@@ -335,7 +335,7 @@ git add backend && git commit -m "feat: idempotência por chave com replay da re
 - Teste: `backend/src/test/java/com/estudo/banco/outbox/OutboxTest.java`
 
 **Interfaces:**
-- Consome: `TransferService.execute` (Tarefa 4).
+- Consome: `TransferService.execute` (Task 4).
 - Produz:
   - `NotificationService.subscribe(Long accountId): SseEmitter`.
   - `OutboxPublisher.publishPending(): int` — `@Scheduled(fixedDelay = 1000)`, devolve quantos publicou.
@@ -370,7 +370,7 @@ git add backend && git commit -m "feat: outbox transacional e notificações em 
 
 ---
 
-### Tarefa 8: Observabilidade
+### Task 8: Observabilidade
 
 **Arquivos:**
 - Criar: `observability/CorrelationIdFilter.java`
@@ -406,7 +406,7 @@ git add backend && git commit -m "feat: logs estruturados em JSON com correlatio
 
 ---
 
-### Tarefa 9: PWA React — saldo e extrato com visual Nubank
+### Task 9: PWA React — saldo e extrato com visual Nubank
 
 **Arquivos:**
 - Criar: `frontend/package.json`, `vite.config.ts`, `tailwind.config.js`, `index.html`, `src/main.tsx`, `src/index.css`
@@ -419,7 +419,7 @@ git add backend && git commit -m "feat: logs estruturados em JSON com correlatio
 - Consome: `GET /api/accounts/{id}`, `GET /api/accounts/{id}/statement`.
 - Produz: `fetchAccount(id): Promise<Account>`, `fetchStatement(id): Promise<Entry[]>`, `postTransfer(req, idempotencyKey): Promise<TransferResponse>`.
 
-Nota: esta tarefa e a 10 são verificadas visualmente no navegador, não por suíte automatizada. O prazo de 2 horas não comporta montar Vitest + Testing Library, e o risco de um botão desalinhado é incomparavelmente menor que o de um saldo errado. Decisão consciente, registrada aqui para que não pareça esquecimento.
+Nota: esta tarefa e a 10 são verificadas visualmente no navegador, não por suíte automatizada. O esforço de teste foi concentrado no backend de propósito: o risco de um botão desalinhado é incomparavelmente menor que o de um saldo errado. Decisão consciente, registrada aqui para que não pareça esquecimento.
 
 - [ ] **Passo 1: Scaffold** do Vite com React + TypeScript, Tailwind configurado com as cores da spec, `vite-plugin-pwa` com `registerType: 'autoUpdate'`, e proxy de `/api` para `localhost:8080`.
 
@@ -435,7 +435,7 @@ git add frontend && git commit -m "feat: PWA React com cartão de saldo e extrat
 
 ---
 
-### Tarefa 10: Transferência na UI e notificação ao vivo
+### Task 10: Transferência na UI e notificação ao vivo
 
 **Arquivos:**
 - Criar: `frontend/src/components/TransferSheet.tsx`, `frontend/src/components/Toast.tsx`
@@ -443,7 +443,7 @@ git add frontend && git commit -m "feat: PWA React com cartão de saldo e extrat
 - Modificar: `frontend/src/pages/Home.tsx`
 
 **Interfaces:**
-- Consome: `postTransfer` (Tarefa 9), `GET /api/notifications/stream` (Tarefa 7).
+- Consome: `postTransfer` (Task 9), `GET /api/notifications/stream` (Task 7).
 - Produz: `useNotifications(accountId): Notification[]` — abre um `EventSource` e reconecta ao perder a conexão.
 
 - [ ] **Passo 1: Implementar** `TransferSheet` como bottom sheet deslizante com campo de valor, seleção de destino e botão de confirmar; gerar o `Idempotency-Key` com `crypto.randomUUID()` **uma vez por tentativa do usuário**, não por clique, para que o botão de retentar reaproveite a mesma chave.

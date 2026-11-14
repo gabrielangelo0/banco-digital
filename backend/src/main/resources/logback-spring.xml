@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--
+      Dois formatos, por ambiente.
+
+      Em producao, JSON: log de banco e lido por maquina (agregador, alerta,
+      auditoria), nao por olho humano rolando terminal. Cada linha vira um
+      documento com campos consultaveis, e o correlationId do MDC entra em
+      todas automaticamente.
+
+      Localmente, texto legivel - ninguem depura lendo JSON cru.
+    -->
+
+    <springProfile name="local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} %-5level [%X{correlationId:-sem-correlacao}] %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!local">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <customFields>{"application":"banco"}</customFields>
+                <fieldNames>
+                    <timestamp>timestamp</timestamp>
+                    <message>message</message>
+                    <levelValue>[ignore]</levelValue>
+                </fieldNames>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+    <!-- Trilha de auditoria: toda movimentacao de dinheiro passa por aqui. -->
+    <logger name="com.estudo.banco.transfer.TransferExecutor" level="INFO"/>
+    <logger name="com.estudo.banco.outbox" level="INFO"/>
+
+</configuration>

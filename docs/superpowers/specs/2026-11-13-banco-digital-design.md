@@ -2,24 +2,21 @@
 
 ## Intenção e porquê
 
-Projeto de portfólio com prazo curto: entrevista hoje (13/11/2026) numa empresa
-do setor bancário. O objetivo real **não é ter um app grande** — é conseguir
-explicar com propriedade como dinheiro se move entre contas sem se perder,
-duplicar ou travar. O código existe para sustentar essa conversa e para ser
-mostrado depois.
+Estudo de consistência em transações bancárias. O objetivo **não é ter um app
+grande** — é demonstrar, com testes que provam, como dinheiro se move entre
+contas sem se perder, duplicar ou travar, e conseguir explicar cada garantia.
 
-Medo concreto que originou o projeto, nas palavras do Gabriel: "sair dinheiro de
-uma conta e no meio do processo errar a transação e ficar o valor inconsistente
-de uma conta para outra".
+O cenário concreto que o projeto ataca: o dinheiro sai de uma conta, algo falha
+no meio do caminho, e o valor fica inconsistente entre origem e destino.
 
 ## Objetivos
 
 1. Demonstrar em código executável as quatro camadas de defesa do fluxo de
    transferência: **atomicidade, concorrência, idempotência, consistência eventual**.
 2. Testes que **provam** as garantias — não que apenas exercitam o caminho feliz.
-3. Um guia de leitura que o Gabriel absorva em ~20 minutos e use como roteiro
-   de conversa.
-4. PWA React com visual Nubank, com o tempo que sobrar.
+3. Um guia de leitura que se absorva em ~20 minutos e sirva de
+   referência do projeto.
+4. PWA React com visual inspirado em bancos digitais.
 
 ## Não-objetivos
 
@@ -31,27 +28,27 @@ de uma conta para outra".
 ## Anti-objetivos (fariam isso falhar mesmo funcionando)
 
 - Tela bonita sobre um motor frágil.
-- Gabriel não conseguir explicar o próprio código numa arguição.
+- Não conseguir explicar o próprio código.
 - App que não sobe na hora de mostrar.
 
 ## Restrições
 
-- **2 horas** até a entrevista. O tempo do Gabriel roda em paralelo ao meu: ele
-  lê o guia enquanto o resto é construído.
-- Java 21, Node 20.20, Docker disponíveis. Maven **não** instalado → Maven Wrapper.
-- Diretório vazio, projeto do zero.
+- **Escopo deliberadamente enxuto.** Profundidade no motor de transferência vale
+  mais aqui do que cobertura de funcionalidades: uma operação, feita com rigor.
+- Java 21, Node 20, Docker. Maven via Maven Wrapper, sem instalação global.
+- Projeto do zero, sem código legado.
 
 ## Abordagens consideradas
 
 | | O que era | Troca |
 |---|---|---|
 | **A** | Só o motor de transferência, bem fundo, sem frontend | Máxima profundidade; nada visual pra mostrar |
-| **B** ✅ | Motor + testes + guia primeiro; PWA com o tempo restante | Visual pode ficar simples, mas o risco fica contido no que importa |
-| **C** | Só um guia de estudo denso, sem app | Mais tempo de leitura; não é portfólio |
+| **B** ✅ | Motor + testes + guia primeiro; PWA depois | Visual mais simples, mas o risco fica contido no que importa |
+| **C** | Só um documento de estudo denso, sem app | Mais tempo de leitura; não gera software |
 
-**Escolhida: B**, pelo Gabriel. Razão: em 2 horas, construir o motor primeiro
-garante que, se o relógio apertar, o que já está pronto é justamente a parte que
-sustenta a entrevista. A ordem é a mitigação de risco.
+**Escolhida: B.** Razão: construir o motor primeiro garante que, se o escopo
+precisar encolher, o que já está pronto é justamente a parte que carrega o valor
+do projeto. A ordem é a mitigação de risco.
 
 ## Decisões de arquitetura
 

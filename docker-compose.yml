@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: banco-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-banco}
+      POSTGRES_USER: ${POSTGRES_USER:-banco}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-banco}
+    ports:
+      # Publicada só para o backend rodar fora do Docker em desenvolvimento.
+      # Em servidor, remova esta porta e deixe o Postgres só na rede interna.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U banco -d banco"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
