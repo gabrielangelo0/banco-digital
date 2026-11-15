@@ -34,6 +34,10 @@ services:
       # O dado do banco vive no volume, nao no container. `docker compose down`
       # nao apaga nada; so `down -v` apaga.
       - postgres-data:/var/lib/postgresql/data
+    # Teto de memoria. Numa VPS dedicada a esta stack e folga; numa VPS
+    # compartilhada e o que impede este projeto de sufocar os vizinhos.
+    mem_limit: ${POSTGRES_MEM_LIMIT:-512m}
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -49,6 +53,13 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+    # A JVM calcula o heap a partir do limite do cgroup (MaxRAMPercentage=75,
+    # no Dockerfile). SEM limite de container ela le a RAM do HOST: numa
+    # maquina de 8 GB isso daria ~6 GB de heap para um app que precisa de
+    # centenas de MB. Com 1g, o heap fica em ~768 MB - dimensionado, nao
+    # herdado da maquina em que por acaso rodou.
+    mem_limit: ${BACKEND_MEM_LIMIT:-1g}
     depends_on:
       postgres:
         # Nao "depois que o container existir", mas "depois que o banco aceita
