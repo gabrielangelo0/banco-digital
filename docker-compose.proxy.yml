@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Sobreposicao para quando a VPS JA TEM um proxy reverso na borda.
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.proxy.yml up -d --build
+#
+# O docker-compose.prod.yml puro assume 80 e 443 livres e deixa o Caddy deste
+# projeto emitir o proprio certificado. Numa VPS que ja serve outros projetos
+# essas portas estao ocupadas por um proxy, e derrubar o proxy para liberar a
+# porta derruba o que ja esta em producao.
+#
+# Com esta sobreposicao o Caddy daqui deixa de publicar portas e de emitir
+# certificado. Ele continua sendo quem serve o front e roteia /api - so passa a
+# falar HTTP puro com quem esta na frente. O TLS fica com o proxy da borda.
+#
+# ATENCAO ao configurar a rota no proxy da borda: /api/notifications/stream e
+# SSE, e um proxy que acumula a resposta transforma o stream em nada - sem
+# erro, sem log, conexao aberta e muda. Ver docs/DEPLOY.md secao 8.
+# ---------------------------------------------------------------------------
+services:
+  web:
+    # !reset descarta a lista de ports do arquivo base em vez de somar a ela.
+    # Sem isto o Caddy daqui continuaria disputando 80/443 com o proxy.
+    ports: !reset []
+
+    environment:
+      # Fixo, nao vem do .env.prod: um dominio aqui faria o Caddy tentar um
+      # ACME que nunca completa, porque ele nao tem mais a porta 80.
+      SITE_ADDRESS: ":80"
+
+    # Declarar `networks` substitui a rede default implicita, por isso a
+    # default volta explicita aqui.
+    networks:
+      default: {}
+      edge:
+        # O proxy encontra este projeto por este apelido. Nao use o IP do
+        # container: ele muda a cada recriacao.
+        aliases:
+          - ${WEB_ALIAS:?defina WEB_ALIAS no .env.prod}
+
+networks:
+  edge:
+    name: ${EDGE_NETWORK:?defina EDGE_NETWORK no .env.prod}
+    external: true

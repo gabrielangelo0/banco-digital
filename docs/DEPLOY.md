@@ -230,7 +230,7 @@ refazer os certificados conta contra o limite semanal do Let's Encrypt.
 |---|---|---|
 | Certificado não emite | DNS ainda não propagou, ou porta 80 fechada | `dig +short seu.dominio` e `curl -I http://seu.dominio`. Veja `logs web` |
 | `bind: address already in use` | Já existe um nginx/Apache na 80 | `sudo ss -lptn 'sport = :80'` e pare o serviço, ou ponha o Caddy atrás dele |
-| `curl -N` do SSE fica mudo | Proxy acumulando a resposta | Veja §4. Outro proxy na frente precisa de buffering desligado |
+| `curl -N` do SSE fica mudo | Proxy acumulando a resposta | Veja §4. Proxy na frente acumulando a resposta: §8.1 |
 | Backend reinicia em loop | Senha ou URL do banco errada | `logs backend`. Confira que `DB_URL` aponta para o host `postgres`, não `localhost` |
 | `relation "accounts" does not exist` | Flyway não rodou | `logs backend` — procure a linha do Flyway. `ddl-auto` é `validate`: o schema vem da migração, não do Hibernate |
 | HTTP 500 sem corpo numa transferência | `lock_timeout` de 3s estourou sob concorrência | Limitação conhecida, documentada no guia de estudo |
@@ -255,7 +255,76 @@ no `docker-compose.prod.yml` do servidor.
 
 ---
 
-## 8. O que este deploy NÃO tem
+## 8. Atrás de um proxy reverso que já existe
+
+A §3 assume 80 e 443 livres. Numa VPS que já serve outros projetos elas não
+estão: há um proxy na borda (Traefik, nginx, Nginx Proxy Manager, Caddy), e
+derrubá-lo para liberar a porta derruba o que já está em produção.
+
+Nesse caso o Caddy deste projeto **não** publica portas nem emite certificado.
+Ele continua sendo quem serve o front e roteia `/api` — só passa a falar HTTP
+puro com quem está na frente. O TLS fica com o proxy da borda.
+
+```
+internet ──443──▶ proxy da borda ──http──▶ web (Caddy) ──▶ backend ──▶ postgres
+                  (o TLS fica aqui)        deste projeto    sem porta    sem porta
+```
+
+Suba com a sobreposição:
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.proxy.yml up -d --build
+```
+
+No `.env.prod`:
+
+```bash
+SITE_ADDRESS=:80          # o TLS não é mais problema deste Caddy
+EDGE_NETWORK=<rede onde o proxy está>
+WEB_ALIAS=banco-web
+```
+
+Para descobrir a rede do proxy:
+
+```bash
+docker inspect <container-do-proxy> \
+  --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+```
+
+O apelido (`WEB_ALIAS`) é como o proxy encontra este projeto. Não use o IP do
+container: ele muda a cada recriação.
+
+### 8.1 A rota no proxy, e a armadilha
+
+`/api/notifications/stream` é SSE. Um proxy que acumula a resposta antes de
+repassar transforma o stream em nada, e a falha é **silenciosa**: sem erro, sem
+log, a conexão fica aberta e muda. Ajuste o buffering antes de testar.
+
+| Proxy na borda | O que ajustar |
+|---|---|
+| nginx / Nginx Proxy Manager | `proxy_buffering off;` na rota (no NPM, aba *Advanced*) |
+| Caddy | `flush_interval -1` dentro do `reverse_proxy` |
+| Traefik | não bufferiza por padrão — só não ative `buffering` nessa rota |
+
+O Caddy deste projeto já manda `X-Accel-Buffering: no` na rota do stream, que o
+nginx respeita e desliga o buffering sozinho. É rede de segurança, não
+substituto da configuração: quem está na frente pode não ser nginx.
+
+Exemplo com Caddy na borda:
+
+```caddy
+banco.exemplo.com {
+	# Sem `encode` aqui: o Caddy deste projeto já comprime o estático, e
+	# comprimir é acumular bytes — o que mataria o SSE.
+	reverse_proxy banco-web:80 {
+		flush_interval -1
+	}
+}
+```
+
+Recarregue o proxy e verifique pela §4. A do `curl -N` é a que importa.
+
+## 9. O que este deploy NÃO tem
 
 Dito com clareza, porque um deploy honesto declara seus limites:
 

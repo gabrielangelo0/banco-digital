@@ -48,6 +48,15 @@
 	# -----------------------------------------------------------------------
 	@sse path /api/notifications/stream
 	handle @sse {
+		# Rede de seguranca para quando ha OUTRO proxy na frente deste Caddy.
+		# O nginx le X-Accel-Buffering: no na resposta do upstream e desliga o
+		# buffering por conta propria - sem isso, um nginx com buffering padrao
+		# acumula o stream e o cliente nao recebe nada ate a conexao fechar.
+		# Nao substitui configurar o proxy: quem esta na frente pode nao ser nginx.
+		header {
+			X-Accel-Buffering no
+			Cache-Control no-cache
+		}
 		reverse_proxy backend:8080 {
 			flush_interval -1
 		}
