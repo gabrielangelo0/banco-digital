@@ -73,6 +73,11 @@ services:
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?defina SITE_ADDRESS no .env.prod}
+
+    # Caddy servindo estatico usa ~10 MiB. O teto esta aqui para a stack ficar
+    # inteira delimitada: numa VPS compartilhada, "sem limite" quer dizer "o
+    # limite e a maquina toda".
+    mem_limit: ${WEB_MEM_LIMIT:-128m}
     ports:
       - "80:80"
       - "443:443"
