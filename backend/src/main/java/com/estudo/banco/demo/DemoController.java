@@ -93,7 +93,8 @@ public class DemoController {
         String token = sessoes.create(dono, SessionStore.TTL_VISITANTE);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
-                        SessionCookie.build(token, proxy.ehHttps(http)).toString())
+                        SessionCookie.build(token, proxy.ehHttps(http), SessionStore.TTL_VISITANTE)
+                                .toString())
                 .build();
     }
 }

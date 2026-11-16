@@ -23,12 +23,23 @@ public final class SessionCookie {
     }
 
     public static ResponseCookie build(String token, boolean secure) {
+        return build(token, secure, SessionStore.TTL);
+    }
+
+    /**
+     * O `maxAge` acompanha o TTL da sessao no servidor.
+     *
+     * Quem manda e o servidor - um cookie vivo com a chave ja apagada so da
+     * 401. Mas deixar o navegador do visitante guardando por sete dias um
+     * token que o servidor esqueceu em duas horas e sujeira sem motivo.
+     */
+    public static ResponseCookie build(String token, boolean secure, Duration maxAge) {
         return ResponseCookie.from(NOME, token)
                 .httpOnly(true)
                 .secure(secure)
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(SessionStore.TTL)
+                .maxAge(maxAge)
                 .build();
     }
 

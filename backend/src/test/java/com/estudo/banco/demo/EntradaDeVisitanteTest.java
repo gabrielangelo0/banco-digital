@@ -140,6 +140,9 @@ class EntradaDeVisitanteTest extends PostgresTestBase {
 
         assertThat(segundos).isNotNull();
         assertThat(segundos).isLessThanOrEqualTo(Duration.ofHours(2).toSeconds());
+        // E o cookie expira junto. Senao o navegador do visitante guarda por
+        // sete dias um token que o servidor ja esqueceu.
+        assertThat(cookie.getMaxAge()).isLessThanOrEqualTo((int) Duration.ofHours(2).toSeconds());
     }
 
     @Test

@@ -14,6 +14,23 @@
 # um bloco no topo deste arquivo:  { email voce@dominio.com }
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Quando ha OUTRO proxy na frente deste Caddy - e aqui ha: o Caddy da borda
+# termina o TLS e repassa em HTTP puro - este Caddy, por padrao, SOBRESCREVE
+# o X-Forwarded-Proto com o esquema que ele mesmo recebeu, "http". O backend
+# entao conclui que a origem nao era HTTPS e manda o cookie de sessao SEM
+# `Secure`, sem erro nenhum em lugar nenhum.
+#
+# Com `trusted_proxies`, os X-Forwarded-* de um par confiavel sao preservados.
+# `private_ranges` cobre a rede interna do compose, que e por onde a borda
+# fala com este container; a porta deste Caddy nao esta publicada no host.
+# ---------------------------------------------------------------------------
+{
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
 {$SITE_ADDRESS} {
 	header {
 		# Nao anunciar o servidor nem deixar o navegador adivinhar tipo de
