@@ -1,8 +1,17 @@
 // Service worker minimo: o bastante para o app ser instalavel e abrir offline
 // com o shell em cache. Estrategia network-first para a API (dinheiro nao se
 // le de cache) e cache-first para os assets do shell.
-const CACHE = 'banco-shell-v1';
-const SHELL = ['/', '/index.html', '/icon.svg', '/manifest.webmanifest'];
+// Versao do cache: subir sempre que SHELL mudar. O activate apaga todo cache
+// com nome diferente deste, e e so assim que quem ja instalou recebe o shell novo.
+const CACHE = 'banco-shell-v2';
+const SHELL = [
+  '/',
+  '/index.html',
+  '/icon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/manifest.webmanifest',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

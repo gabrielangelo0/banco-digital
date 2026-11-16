@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#820AD1" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <!-- O Safari do iOS ignora os icones do manifest para a tela inicial:
+         ele usa apple-touch-icon, e so PNG. Sem esta linha, "Adicionar a Tela
+         de Inicio" no iPhone gera um icone vazio. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Banco</title>
   </head>
   <body>
