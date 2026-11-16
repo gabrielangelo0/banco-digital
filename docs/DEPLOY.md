@@ -324,17 +324,42 @@ banco.exemplo.com {
 
 Recarregue o proxy e verifique pela §4. A do `curl -N` é a que importa.
 
+### Ao atualizar um deploy que já existia
+
+A restauração da demonstração passou a acontecer **dentro da aplicação**, de
+hora em hora, por lançamento compensatório. Se você tem uma entrada de crontab
+chamando `scripts/reset-demo.sh`, **remova**: o script agora só mostra o estado.
+
+A mudança não foi de lugar, foi de método. Truncar apagava o razão, que o
+projeto declara fonte da verdade — e com usuários reais compartilhando as
+mesmas tabelas, apagaria o histórico deles junto.
+
+```bash
+crontab -l | grep -v reset-demo.sh | crontab -
+```
+
+O `.env.prod` precisa ganhar `REDIS_PASSWORD` e, se quiser a entrada de
+visitante, `BANCO_DEMO_ENABLED`, `BANCO_DEMO_PASSWORD` e
+`BANCO_DEMO_TRANSACTION_PASSWORD`. Sem as duas últimas a aplicação não sobe com
+a demonstração ligada, de propósito: credencial previsível é pior do que falhar
+na subida.
+
 ## 9. O que este deploy NÃO tem
 
 Dito com clareza, porque um deploy honesto declara seus limites:
 
-- **Autenticação.** Não-objetivo declarado do projeto: o foco é consistência de
-  transações, não gestão de identidade. Num demo público, qualquer visitante
-  pode mover o dinheiro das duas contas de demonstração. O
-  `scripts/reset-demo.sh` existe por isso, e pode ir para o cron.
-- **Rate limiting.** O Caddy padrão não traz. Para um demo de portfólio, o
-  volume não justifica; se justificar, a Cloudflare na frente resolve sem
-  mexer na stack.
+- **Verificação de identidade.** Há cadastro, login e senha transacional, mas
+  ninguém confere se você é quem diz ser: o cadastro é aberto e não há KYC.
+  Para um estudo de consistência isso basta; para dinheiro de verdade, não.
+- **Recuperação de senha.** Exigiria provedor de SMS ou e-mail, e um segredo a
+  mais em produção, sem acrescentar nada ao que o projeto se propõe a provar.
+  Quem perder a senha cria outra conta.
+- **Segundo fator.** Mesma razão.
+- **Rate limiting de borda.** O Caddy padrão não traz. Há bloqueio progressivo
+  por identidade na aplicação, que é o que contém força bruta em login e senha
+  transacional; o limite por IP só vale quando o `X-Forwarded-For` vem de um
+  proxy declarado em `banco.proxies-confiaveis`. Volume de borda, se um dia
+  justificar, a Cloudflare resolve sem mexer na stack.
 - **Backup automático.** O comando de `pg_dump` está na §5, mas nada o agenda.
   Para um demo, o `reset-demo.sh` cobre a necessidade real.
 - **Observabilidade além do log.** O log sai em JSON com `correlationId`,

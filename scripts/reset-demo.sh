@@ -1,50 +1,32 @@
 #!/usr/bin/env sh
 # ---------------------------------------------------------------------------
-# Devolve a demo ao estado inicial.
+# A restauracao da demonstracao agora acontece DENTRO da aplicacao, de hora em
+# hora, por lancamento compensatorio - nao mais por TRUNCATE a partir daqui.
 #
-# A aplicacao nao tem autenticacao - e um nao-objetivo declarado. Num demo
-# publico isso significa que qualquer visitante pode zerar os saldos e o
-# proximo visitante encontra um app sem dinheiro para mover. Este script
-# existe para desfazer isso.
+# A mudanca nao foi de lugar, foi de metodo. Truncar apagava o razao, que o
+# projeto declara fonte da verdade; e com usuarios reais compartilhando as
+# mesmas tabelas, apagaria o historico deles junto. Compensar devolve os
+# saldos sem tirar uma linha do livro.
 #
-# Uso, na raiz do projeto, na VPS:
-#   ./scripts/reset-demo.sh
-#
-# Para agendar (todo dia as 4h), no crontab do usuario:
-#   0 4 * * * cd /caminho/do/projeto && ./scripts/reset-demo.sh >> /var/log/banco-reset.log 2>&1
-#
-# NAO apaga a tabela accounts: os ids precisam continuar os mesmos, porque o
-# frontend e as chaves estrangeiras apontam para eles. Apaga a MOVIMENTACAO e
-# recoloca os saldos de partida.
+# Este script agora so MOSTRA o estado. Se voce tem uma entrada de crontab
+# chamando ele, remova: ela nao e mais necessaria (ver docs/DEPLOY.md).
 # ---------------------------------------------------------------------------
 set -eu
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 ENV_FILE="${ENV_FILE:-./.env.prod}"
 
-# O compose le o .env.prod, mas este script tambem precisa dele: o psql
-# roda com o usuario e o banco de lá. Sem isto, mudar POSTGRES_USER no
-# .env.prod quebraria o reset em silencio.
 [ -f "$ENV_FILE" ] || { echo "nao achei $ENV_FILE - rode na raiz do projeto" >&2; exit 1; }
 set -a
 . "$ENV_FILE"
 set +a
 
+echo "Saldos das contas de demonstracao agora:"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-BEGIN;
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+    "SELECT id, holder_name, balance FROM accounts WHERE owner_id IS NOT NULL ORDER BY id LIMIT 2;"
 
--- Uma transacao so: ou a demo volta inteira ao inicio, ou nada muda. O mesmo
--- principio que governa uma transferencia governa o reset dela.
-TRUNCATE entries, outbox_events, idempotency_keys, transfers RESTART IDENTITY;
-
--- Os mesmos valores de V2__seed.sql.
-UPDATE accounts SET balance = 1000.0000 WHERE id = 1;
-UPDATE accounts SET balance =  500.0000 WHERE id = 2;
-
-COMMIT;
-
-SELECT id, holder_name, balance FROM accounts ORDER BY id;
-SQL
-
-echo "demo restaurada."
+echo
+echo "A restauracao roda sozinha de hora em hora dentro da aplicacao."
+echo "Para disparar antes da hora, reinicie o backend:"
+echo "  docker compose -f $COMPOSE_FILE --env-file $ENV_FILE restart backend"

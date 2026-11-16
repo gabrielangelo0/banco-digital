@@ -27,6 +27,7 @@ spring:
       host: ${REDIS_HOST:localhost}
       # Configuravel porque 6379 costuma estar ocupada por um Redis da maquina.
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
 server:
   # Configuravel para conviver com outros servicos na mesma maquina de
