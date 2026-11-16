@@ -1,6 +1,8 @@
 package com.estudo.banco.account;
 
+import com.estudo.banco.auth.RegistrationService;
 import com.estudo.banco.support.PostgresTestBase;
+import com.estudo.banco.support.SessaoDeTeste;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -16,28 +18,34 @@ class AccountControllerTest extends PostgresTestBase {
     @Autowired
     MockMvc mvc;
 
-    @Test
-    void retornaContaComSaldo() throws Exception {
-        Long id = novaConta("Gabriel", "1000.00");
+    @Autowired
+    RegistrationService registration;
 
-        mvc.perform(get("/api/accounts/" + id))
+    @Test
+    void retornaAPropriaContaComSaldo() throws Exception {
+        var sessao = SessaoDeTeste.criar(mvc, registration, "conta");
+
+        mvc.perform(get("/api/accounts/" + sessao.contaId()).cookie(sessao.cookie()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.holderName").value("Gabriel"))
                 .andExpect(jsonPath("$.balance").value(1000.0));
     }
 
     @Test
-    void contaInexistenteRetorna404() throws Exception {
-        mvc.perform(get("/api/accounts/999999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("CONTA_NAO_ENCONTRADA"));
+    void contaQueNaoEhSuaRespondeAcessoNegado() throws Exception {
+        // 403 mesmo para id inexistente, de proposito: distinguir "nao e sua"
+        // de "nao existe" devolveria um verificador de contas a quem perguntar.
+        var sessao = SessaoDeTeste.criar(mvc, registration, "intruso");
+
+        mvc.perform(get("/api/accounts/999999").cookie(sessao.cookie()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACESSO_NEGADO"));
     }
 
     @Test
     void extratoDeContaNovaVemVazio() throws Exception {
-        Long id = novaConta("Maria", "500.00");
+        var sessao = SessaoDeTeste.criar(mvc, registration, "extrato");
 
-        mvc.perform(get("/api/accounts/" + id + "/statement"))
+        mvc.perform(get("/api/accounts/" + sessao.contaId() + "/statement").cookie(sessao.cookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }

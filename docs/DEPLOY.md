@@ -133,20 +133,57 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod ps
 
 `backend` precisa aparecer como `healthy`, não apenas `running`.
 
-**A API responde através do proxy:**
+**O roteamento do `/api` pegou:**
 
 ```bash
 curl -s https://banco.seudominio.com/api/accounts
 ```
 
-Duas contas com saldo. Se vier o HTML do `index.html` em vez de JSON, o
-roteamento do `/api` não pegou.
+Agora toda rota de `/api` exige sessão, então a resposta correta aqui é
+`{"code":"SEM_SESSAO","message":...}` com status 401 — e isso já responde o
+que esta checagem sempre quis responder: se vier o **HTML do `index.html`** em
+vez de JSON, o `/api` está caindo no servidor de estáticos. Foi assim que se
+descobriu, uma vez, que a porta respondida era de outra aplicação.
+
+**Uma sessão para as checagens seguintes.** Com `BANCO_DEMO_ENABLED=true`:
+
+```bash
+curl -s -c /tmp/banco.cookies -o /dev/null -w '%{http_code}\n' \
+  -X POST https://banco.seudominio.com/api/auth/guest \
+  -H 'Content-Type: application/json' -d '{"accountId":1}'
+```
+
+`200`. Com a demonstração desligada, use `/api/auth/register` e depois
+`/api/auth/login` com um e-mail descartável.
+
+**O cookie de sessão sai com `Secure`** — a outra falha silenciosa, porque o
+TLS termina no proxy e o backend recebe HTTP puro:
+
+```bash
+grep -io 'set-cookie:.*' /tmp/banco.cookies >/dev/null; \
+curl -s -D - -o /dev/null -X POST https://banco.seudominio.com/api/auth/guest \
+  -H 'Content-Type: application/json' -d '{"accountId":1}' | grep -i '^set-cookie'
+```
+
+A linha precisa conter `Secure`, `HttpOnly` e `SameSite=Lax`. Se faltar
+`Secure`, o proxy à frente não está mandando `X-Forwarded-Proto: https`, ou o
+endereço dele não casa com `banco.proxies-confiaveis` — e aí uma única visita
+a `http://` manda o token de sessão em texto claro.
+
+**A API responde autenticada:**
+
+```bash
+curl -s -b /tmp/banco.cookies https://banco.seudominio.com/api/accounts
+```
+
+**Uma** conta, com saldo: a da sessão. Duas contas aqui seria um defeito de
+autorização.
 
 **O SSE realmente transmite** — esta é a checagem que importa, porque é a que
 falha em silêncio:
 
 ```bash
-curl -N -s https://banco.seudominio.com/api/notifications/stream?accountId=1
+curl -N -s -b /tmp/banco.cookies https://banco.seudominio.com/api/notifications/stream
 ```
 
 Deve imprimir, **na hora**, um evento `ready`:
@@ -162,6 +199,8 @@ para o Caddy; se você puser outro proxy na frente (nginx, Cloudflare, um load
 balancer do provedor), ele precisa do equivalente — no nginx,
 `proxy_buffering off`. Deixe o `curl -N` aberto, faça uma transferência pelo
 app noutra aba e veja o evento `transfer` chegar.
+
+Ao terminar, `rm -f /tmp/banco.cookies`: aquele arquivo é uma sessão válida.
 
 Por último, abra o app no celular. Se o HTTPS estiver válido, o navegador
 oferece instalar — é o PWA. Sem HTTPS não há service worker, e sem service
@@ -324,17 +363,45 @@ banco.exemplo.com {
 
 Recarregue o proxy e verifique pela §4. A do `curl -N` é a que importa.
 
+### Ao atualizar um deploy que já existia
+
+A restauração da demonstração passou a acontecer **dentro da aplicação**, de
+hora em hora, por lançamento compensatório. Se você tem uma entrada de crontab
+chamando `scripts/reset-demo.sh`, **remova**: o script agora só mostra o estado.
+
+A mudança não foi de lugar, foi de método. Truncar apagava o razão, que o
+projeto declara fonte da verdade — e com usuários reais compartilhando as
+mesmas tabelas, apagaria o histórico deles junto.
+
+```bash
+crontab -l | grep -v reset-demo.sh | crontab -
+```
+
+O `.env.prod` precisa ganhar `REDIS_PASSWORD` e, se quiser a entrada de
+visitante, `BANCO_DEMO_ENABLED`, `BANCO_DEMO_PASSWORD` e
+`BANCO_DEMO_TRANSACTION_PASSWORD`. Sem as duas últimas a aplicação não sobe com
+a demonstração ligada, de propósito: credencial previsível é pior do que falhar
+na subida.
+
 ## 9. O que este deploy NÃO tem
 
 Dito com clareza, porque um deploy honesto declara seus limites:
 
-- **Autenticação.** Não-objetivo declarado do projeto: o foco é consistência de
-  transações, não gestão de identidade. Num demo público, qualquer visitante
-  pode mover o dinheiro das duas contas de demonstração. O
-  `scripts/reset-demo.sh` existe por isso, e pode ir para o cron.
-- **Rate limiting.** O Caddy padrão não traz. Para um demo de portfólio, o
-  volume não justifica; se justificar, a Cloudflare na frente resolve sem
-  mexer na stack.
+- **Verificação de identidade.** Há cadastro, login e senha transacional, mas
+  ninguém confere se você é quem diz ser: o cadastro é aberto e não há KYC.
+  Para um estudo de consistência isso basta; para dinheiro de verdade, não.
+- **Recuperação de senha.** Exigiria provedor de SMS ou e-mail, e um segredo a
+  mais em produção, sem acrescentar nada ao que o projeto se propõe a provar.
+  Quem perder a senha cria outra conta.
+- **Segundo fator.** Mesma razão.
+- **Rate limiting de borda.** O Caddy padrão não traz. Há bloqueio progressivo
+  por identidade na aplicação, que é o que contém força bruta em login e senha
+  transacional, mais um teto por IP em login, cadastro e entrada de visitante.
+  O teto por IP só vale quando o `X-Forwarded-For` vem de um endereço que casa
+  com `banco.proxies-confiaveis` — cujo default cobre as faixas privadas, onde
+  fica a rede interna do compose. Com outra topologia, confira esse valor: sem
+  ele o cabeçalho é descartado e só o bloqueio por identidade continua valendo. Volume de borda, se um dia
+  justificar, a Cloudflare resolve sem mexer na stack.
 - **Backup automático.** O comando de `pg_dump` está na §5, mas nada o agenda.
   Para um demo, o `reset-demo.sh` cobre a necessidade real.
 - **Observabilidade além do log.** O log sai em JSON com `correlationId`,

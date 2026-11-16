@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -38,11 +39,25 @@ public abstract class PostgresTestBase {
         POSTGRES.start();
     }
 
+    // Redis vive AQUI, e nao numa base separada, porque o contexto do Spring e
+    // compartilhado por toda a suite: a sessao e um bean, entao todo teste que
+    // levanta o contexto precisa de um Redis alcancavel. Uma segunda base
+    // criaria um segundo contexto e dobraria o tempo da suite.
+    @SuppressWarnings("rawtypes")
+    protected static final GenericContainer REDIS =
+            new GenericContainer(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
+
+    static {
+        REDIS.start();
+    }
+
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
 
     @Autowired

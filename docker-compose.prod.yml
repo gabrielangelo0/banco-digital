@@ -44,6 +44,32 @@ services:
       timeout: 3s
       retries: 12
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Sessao vive aqui: sem persistencia, um restart desloga todo mundo.
+    #
+    # maxmemory existe porque o Redis NAO conhece o limite do cgroup: sem ele,
+    # o container e morto por OOM em vez de descartar chave, e morrer desloga
+    # todo mundo de uma vez. Com `volatile-lru` ele descarta as sessoes mais
+    # antigas - todas tem TTL - e quem esta usando agora continua dentro.
+    # Mantenha abaixo de REDIS_MEM_LIMIT: o processo usa memoria tambem fora
+    # do conjunto de dados.
+    command: ["redis-server", "--appendonly", "yes",
+              "--maxmemory", "${REDIS_MAXMEMORY:-96mb}",
+              "--maxmemory-policy", "volatile-lru",
+              "--requirepass", "${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env.prod}"]
+    volumes:
+      - redis-data:/data
+    mem_limit: ${REDIS_MEM_LIMIT:-128m}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
   backend:
     build:
       context: ./backend
@@ -53,6 +79,14 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      BANCO_DEMO_ENABLED: ${BANCO_DEMO_ENABLED:-false}
+      BANCO_DEMO_PASSWORD: ${BANCO_DEMO_PASSWORD:-}
+      BANCO_DEMO_TRANSACTION_PASSWORD: ${BANCO_DEMO_TRANSACTION_PASSWORD:-}
+      # Cron da restauracao da demonstracao. Default: minuto zero de cada hora.
+      # E o unico gatilho que existe - nao ha comando manual.
+      BANCO_DEMO_RESET_CRON: ${BANCO_DEMO_RESET_CRON:-0 0 * * * *}
 
     # A JVM calcula o heap a partir do limite do cgroup (MaxRAMPercentage=75,
     # no Dockerfile). SEM limite de container ela le a RAM do HOST: numa
@@ -61,6 +95,8 @@ services:
     # herdado da maquina em que por acaso rodou.
     mem_limit: ${BACKEND_MEM_LIMIT:-1g}
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         # Nao "depois que o container existir", mas "depois que o banco aceita
         # conexao". O Flyway roda na subida e falha se o banco nao estiver de
@@ -95,5 +131,6 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
   caddy-data:
   caddy-config:

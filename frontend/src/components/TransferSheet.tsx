@@ -1,57 +1,69 @@
 import { useMemo, useState } from 'react'
 import type { Account } from '../api/client'
-import { postTransfer } from '../api/client'
+import { ErroDaApi, postTransfer } from '../api/client'
 import { formatarDinheiro } from './formato'
 
 export function TransferSheet({
   origem,
-  destinos,
   aoFechar,
   aoConcluir,
 }: {
   origem: Account
-  destinos: Account[]
   aoFechar: () => void
   aoConcluir: () => void
 }) {
-  const [destinoId, setDestinoId] = useState<number | ''>(destinos[0]?.id ?? '')
+  // Numero da conta digitado, e nao lista: nao existe diretorio de contas, e
+  // um endpoint de busca revelaria quem tem cadastro aqui.
+  const [destino, setDestino] = useState('')
   const [valor, setValor] = useState('')
+  const [senhaTransacional, setSenhaTransacional] = useState('')
   const [enviando, setEnviando] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
+  const [erroGeral, setErroGeral] = useState<string | null>(null)
+  const [erroDestino, setErroDestino] = useState<string | null>(null)
+  const [erroSenha, setErroSenha] = useState<string | null>(null)
 
   /**
    * A chave identifica a INTENCAO, nao o clique.
    *
    * Ela e estavel enquanto destino e valor nao mudam, entao apertar "tentar de
    * novo" depois de um erro de rede reaproveita a MESMA chave - e o servidor
-   * devolve a resposta original em vez de transferir duas vezes. Mudar o valor
-   * e outra intencao, e aí a chave muda junto.
+   * devolve a resposta original em vez de transferir duas vezes.
    */
-  const idempotencyKey = useMemo(
-    () => crypto.randomUUID(),
-    [destinoId, valor]
-  )
+  const idempotencyKey = useMemo(() => crypto.randomUUID(), [destino, valor])
 
-  const valorValido = /^\d+([.,]\d{1,2})?$/.test(valor.trim()) && Number(valor.replace(',', '.')) > 0
-  const podeEnviar = destinoId !== '' && valorValido && !enviando
+  const destinoValido = /^\d+$/.test(destino.trim())
+  const valorValido =
+    /^\d+([.,]\d{1,2})?$/.test(valor.trim()) && Number(valor.replace(',', '.')) > 0
+  const podeEnviar = destinoValido && valorValido && senhaTransacional.length > 0 && !enviando
 
   async function enviar() {
     if (!podeEnviar) return
     setEnviando(true)
-    setErro(null)
+    setErroGeral(null)
+    setErroDestino(null)
+    setErroSenha(null)
     try {
       await postTransfer(
         {
-          sourceAccountId: origem.id,
-          targetAccountId: Number(destinoId),
+          targetAccountId: Number(destino),
           amount: valor.replace(',', '.'),
+          transactionPassword: senhaTransacional,
         },
         idempotencyKey
       )
       aoConcluir()
       aoFechar()
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível transferir')
+      // O erro vai PARA O CAMPO que o causou. "Nao foi possivel transferir"
+      // sem dizer onde esta o problema e a critica mais votada do app que
+      // serviu de referencia.
+      if (e instanceof ErroDaApi && e.code === 'SENHA_TRANSACIONAL_INVALIDA') {
+        setErroSenha(e.message)
+      } else if (e instanceof ErroDaApi && e.code === 'CONTA_NAO_ENCONTRADA') {
+        setErroDestino(e.message)
+      } else {
+        setErroGeral(e instanceof Error ? e.message : 'Não foi possível transferir')
+      }
     } finally {
       setEnviando(false)
     }
@@ -62,22 +74,21 @@ export function TransferSheet({
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="puxador" />
         <h2>Transferir</h2>
+        <p className="lancamento-data">Da sua conta {origem.id}</p>
 
-        {erro && <div className="erro">{erro}</div>}
+        {erroGeral && <div className="erro">{erroGeral}</div>}
 
         <div className="campo">
-          <label htmlFor="destino">Para quem</label>
-          <select
+          <label htmlFor="destino">Número da conta de destino</label>
+          <input
             id="destino"
-            value={destinoId}
-            onChange={(e) => setDestinoId(Number(e.target.value))}
-          >
-            {destinos.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.holderName} · conta {c.id}
-              </option>
-            ))}
-          </select>
+            inputMode="numeric"
+            placeholder="ex.: 2"
+            value={destino}
+            onChange={(e) => setDestino(e.target.value)}
+            autoFocus
+          />
+          {erroDestino && <div className="erro">{erroDestino}</div>}
         </div>
 
         <div className="campo">
@@ -88,8 +99,22 @@ export function TransferSheet({
             placeholder="0,00"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            autoFocus
           />
+        </div>
+
+        <div className="campo">
+          <label htmlFor="senha-transacional">Senha transacional</label>
+          <input
+            id="senha-transacional"
+            type="password"
+            placeholder="••••••"
+            value={senhaTransacional}
+            onChange={(e) => setSenhaTransacional(e.target.value)}
+          />
+          {erroSenha && <div className="erro">{erroSenha}</div>}
+          <p className="lancamento-data">
+            Entrar prova quem você é. Mover dinheiro pede a segunda senha.
+          </p>
         </div>
 
         <div className="dica-chave">

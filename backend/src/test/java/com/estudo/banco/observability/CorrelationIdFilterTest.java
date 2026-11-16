@@ -1,6 +1,8 @@
 package com.estudo.banco.observability;
 
+import com.estudo.banco.auth.RegistrationService;
 import com.estudo.banco.support.PostgresTestBase;
+import com.estudo.banco.support.SessaoDeTeste;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +24,16 @@ class CorrelationIdFilterTest extends PostgresTestBase {
     @Autowired
     MockMvc mvc;
 
+    @Autowired
+    RegistrationService registration;
+
+    private jakarta.servlet.http.Cookie sessao() throws Exception {
+        return SessaoDeTeste.criar(mvc, registration, "rastro").cookie();
+    }
+
     @Test
     void geraCorrelationIdQuandoNaoEnviado() throws Exception {
-        var resultado = mvc.perform(get("/api/accounts"))
+        var resultado = mvc.perform(get("/api/accounts").cookie(sessao()))
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Correlation-Id"))
                 .andReturn();
@@ -35,14 +44,14 @@ class CorrelationIdFilterTest extends PostgresTestBase {
     @Test
     void preservaCorrelationIdEnviado() throws Exception {
         // Vindo de outro servico, o id tem que atravessar a fronteira intacto.
-        mvc.perform(get("/api/accounts").header("X-Correlation-Id", "rastro-123"))
+        mvc.perform(get("/api/accounts").cookie(sessao()).header("X-Correlation-Id", "rastro-123"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Correlation-Id", "rastro-123"));
     }
 
     @Test
     void limpaMdcDepoisDaRequisicao() throws Exception {
-        mvc.perform(get("/api/accounts")).andExpect(status().isOk());
+        mvc.perform(get("/api/accounts").cookie(sessao())).andExpect(status().isOk());
 
         // O MDC e ligado a thread, e threads sao reaproveitadas pelo pool. Sem
         // limpar, a proxima requisicao herdaria o id da anterior.
