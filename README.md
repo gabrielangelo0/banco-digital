@@ -4,6 +4,16 @@ Aplicação bancária de estudo: **Spring Boot 4 + Postgres** no backend, **Reac
 frontend. O objetivo não é ter muitas funcionalidades — é demonstrar, com testes que
 provam, como dinheiro se move entre contas sem se perder, duplicar ou travar.
 
+**Demo ao vivo: [bank.devfly.net](https://bank.devfly.net)** — duas contas já semeadas.
+Troque entre elas e transfira. A notificação que aparece no topo chega por SSE, não por
+polling: o backend empurra o evento quando a transferência fecha.
+
+<p align="center">
+  <img src="docs/demo.png"
+       alt="Transferência de R$ 250,00: saldo atualizado para R$ 750,00 e a notificação chegando em tempo real"
+       width="340">
+</p>
+
 <p align="center">
   <em>Saldo → ação → transferência → extrato → notificação em tempo real.</em>
 </p>
@@ -41,6 +51,11 @@ cd backend && ./mvnw test
 A stack de produção é outra: `docker-compose.prod.yml` sobe backend, Postgres e um
 container de borda com Caddy, que serve o build do React e faz proxy do `/api` com
 HTTPS automático. Só a borda tem porta publicada.
+
+Numa VPS que já tem um proxy na borda — o caso comum, e o da demo acima — o
+`docker-compose.proxy.yml` tira as portas e o certificado deste Caddy e o coloca atrás do
+que já existe. A armadilha desse arranjo é o SSE: um proxy que acumula a resposta mata o
+stream sem erro e sem log. Está tratado na §8 do runbook.
 
 Passo a passo, verificação e operação em **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
