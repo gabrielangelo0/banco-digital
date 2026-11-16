@@ -23,14 +23,22 @@
 		Referrer-Policy strict-origin-when-cross-origin
 	}
 
-	# O Vite emite os bundles com hash no nome, entao eles podem ser cacheados
-	# para sempre: um deploy novo gera nomes novos.
+	# Cache, em duas regras, e a ORDEM importa.
+	#
+	# Padrao: no-cache em tudo. Nao significa "nao guarde", e sim "revalide antes
+	# de usar" - o custo de acerto e um 304. Sem este header o Caddy nao manda
+	# nenhum, e ai o navegador aplica cache HEURISTICO: inventa um prazo a partir
+	# do Last-Modified e passa a servir o index.html antigo depois de um deploy.
+	# O usuario fica preso numa versao velha do app, o sw.js nunca atualiza, e
+	# nada disso aparece em log nenhum - do lado do servidor esta tudo certo.
+	header Cache-Control "no-cache"
+
+	# Excecao: o Vite emite os bundles com hash no nome, entao eles podem ser
+	# cacheados para sempre - um deploy novo gera nomes novos. Esta regra vem
+	# DEPOIS da anterior de proposito: as duas executam na ordem escrita, e quem
+	# escreve por ultimo vence.
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-
-	# O service worker e a excecao: se ele for cacheado, o usuario fica preso
-	# numa versao antiga do app para sempre.
-	header /sw.js Cache-Control "no-cache"
 
 	# -----------------------------------------------------------------------
 	# SSE - a armadilha que quebra em silencio.
