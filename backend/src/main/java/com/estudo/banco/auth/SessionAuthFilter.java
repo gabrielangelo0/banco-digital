@@ -38,7 +38,9 @@ public class SessionAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String caminho = request.getRequestURI();
-        return !caminho.startsWith("/api/") || caminho.startsWith("/api/auth/");
+        return !caminho.startsWith("/api/")
+                || caminho.startsWith("/api/auth/")
+                || caminho.startsWith("/api/demo");
     }
 
     @Override

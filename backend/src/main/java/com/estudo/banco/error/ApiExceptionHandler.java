@@ -30,6 +30,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
     }
 
+    @ExceptionHandler(DestinoForaDaDemonstracaoException.class)
+    public ResponseEntity<ApiError> destinoForaDaDemonstracao(DestinoForaDaDemonstracaoException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ApiError("DESTINO_FORA_DA_DEMONSTRACAO", e.getMessage()));
+    }
+
     @ExceptionHandler(MuitasTentativasException.class)
     public ResponseEntity<ApiError> muitasTentativas(MuitasTentativasException e) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
