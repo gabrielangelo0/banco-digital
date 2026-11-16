@@ -82,7 +82,7 @@ Cole a chave pública em **Settings → Deploy keys → Add deploy key** no
 repositório, sem marcar *Allow write access*. Depois:
 
 ```bash
-GIT_SSH_COMMAND="ssh -i ~/.ssh/banco_deploy" git clone git@github.com:gabriel-rtdata/banco-digital.git
+GIT_SSH_COMMAND="ssh -i ~/.ssh/banco_deploy" git clone git@github.com:gabrielangelo0/banco-digital.git
 ```
 
 ### 3.2 Configurar
