@@ -137,6 +137,7 @@ void senhaNuncaEGuardadaEmClaro() {
 
 @Test
 void emailRepetidoIgnorandoCaixaEhRecusado() {
+    // Review Focus 3
     registration.register("caio@exemplo.com", "senha-forte-1", "123456");
     assertThatThrownBy(() -> registration.register("CAIO@exemplo.com", "outra-senha-1", "654321"))
         .isInstanceOf(CadastroInvalidoException.class);
@@ -223,6 +224,7 @@ void loginComSenhaErradaEComUsuarioInexistenteRespondemIgual() {
 
 @Test
 void cookieNaoEhSecureQuandoARequisicaoNaoEhHttps() {
+    // Review Focus 4
     ResponseCookie c = SessionCookie.build("t", false);
     assertThat(c.isSecure()).isFalse();
     assertThat(c.isHttpOnly()).isTrue();
