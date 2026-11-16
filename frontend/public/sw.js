@@ -3,7 +3,7 @@
 // le de cache) e cache-first para os assets do shell.
 // Versao do cache: subir sempre que SHELL mudar. O activate apaga todo cache
 // com nome diferente deste, e e so assim que quem ja instalou recebe o shell novo.
-const CACHE = 'banco-shell-v3';
+const CACHE = 'banco-shell-v4';
 const SHELL = [
   '/',
   '/index.html',
@@ -14,7 +14,25 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+  // `cache: 'reload'` faz cada requisicao ignorar o cache HTTP do navegador.
+  //
+  // Sem isso, `addAll` grava no cache do service worker o que o navegador ja
+  // tiver guardado - e se essa copia estiver velha, o shell nasce envenenado e
+  // continua servindo a versao antiga mesmo com o servidor ja correto. Foi
+  // exatamente o que aconteceu aqui: o manifest no cache tinha um icone, o
+  // servidor servia quatro.
+  event.waitUntil(
+    caches.open(CACHE).then((c) =>
+      Promise.all(
+        SHELL.map((caminho) =>
+          fetch(caminho, { cache: 'reload' }).then((resposta) => {
+            if (!resposta.ok) throw new Error('precache falhou em ' + caminho);
+            return c.put(caminho, resposta);
+          })
+        )
+      )
+    )
+  );
   self.skipWaiting();
 });
 
