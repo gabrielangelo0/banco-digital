@@ -38,12 +38,29 @@ public class Account {
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    /**
+     * Dono da conta. Anulavel porque as contas semeadas nasceram antes de
+     * existir usuario: elas ganham dono na subida, nao na migracao.
+     */
+    @Column(name = "owner_id")
+    private Long ownerId;
+
     protected Account() {
     }
 
     public Account(String holderName, BigDecimal balance) {
         this.holderName = holderName;
         this.balance = balance;
+    }
+
+    public Account(String holderName, BigDecimal balance, Long ownerId) {
+        this(holderName, balance);
+        this.ownerId = ownerId;
+    }
+
+    /** Liga uma conta ja existente a um dono. */
+    public void definirDono(Long ownerId) {
+        this.ownerId = ownerId;
     }
 
     /** Debita, ou recusa se nao houver saldo. Nunca deixa a conta negativa. */
@@ -76,5 +93,9 @@ public class Account {
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public Long getOwnerId() {
+        return ownerId;
     }
 }
