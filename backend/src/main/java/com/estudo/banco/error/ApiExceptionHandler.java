@@ -30,6 +30,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
     }
 
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ResponseEntity<ApiError> acessoNegado(AcessoNegadoException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiError("ACESSO_NEGADO", e.getMessage()));
+    }
+
     @ExceptionHandler(CredenciaisInvalidasException.class)
     public ResponseEntity<ApiError> credenciaisInvalidas(CredenciaisInvalidasException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

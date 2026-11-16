@@ -1,8 +1,10 @@
 package com.estudo.banco.auth;
 
+import com.estudo.banco.account.AccountRepository;
 import com.estudo.banco.auth.dto.LoginRequest;
 import com.estudo.banco.auth.dto.RegisterRequest;
 import com.estudo.banco.auth.dto.RegisterResponse;
+import com.estudo.banco.notification.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -17,13 +19,19 @@ public class AuthController {
     private final RegistrationService registration;
     private final AuthenticationService autenticacao;
     private final SessionStore sessoes;
+    private final AccountRepository contas;
+    private final NotificationService notificacoes;
 
     public AuthController(RegistrationService registration,
                           AuthenticationService autenticacao,
-                          SessionStore sessoes) {
+                          SessionStore sessoes,
+                          AccountRepository contas,
+                          NotificationService notificacoes) {
         this.registration = registration;
         this.autenticacao = autenticacao;
         this.sessoes = sessoes;
+        this.contas = contas;
+        this.notificacoes = notificacoes;
     }
 
     @PostMapping("/register")
@@ -50,6 +58,9 @@ public class AuthController {
     public ResponseEntity<Void> sair(@CookieValue(value = SessionCookie.NOME, required = false) String token,
                                      HttpServletRequest http) {
         if (token != null) {
+            // Encerrar as inscricoes ANTES de revogar: depois de revogar nao ha
+            // mais como descobrir de quem era a sessao.
+            sessoes.resolve(token).ifPresent(this::encerrarStreams);
             sessoes.revoke(token);
         }
         return limparCookie(http);
@@ -60,7 +71,10 @@ public class AuthController {
     public ResponseEntity<Void> sairDeTodos(
             @CookieValue(value = SessionCookie.NOME, required = false) String token,
             HttpServletRequest http) {
-        sessoes.resolve(token).ifPresent(sessoes::revokeAll);
+        sessoes.resolve(token).ifPresent(userId -> {
+            encerrarStreams(userId);
+            sessoes.revokeAll(userId);
+        });
         return limparCookie(http);
     }
 
@@ -69,5 +83,10 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE,
                         SessionCookie.expirada(http.isSecure()).toString())
                 .build();
+    }
+
+    private void encerrarStreams(Long userId) {
+        contas.findByOwnerId(userId)
+                .ifPresent(conta -> notificacoes.encerrarInscricoes(conta.getId()));
     }
 }

@@ -1,6 +1,8 @@
 package com.estudo.banco.transfer;
 
+import com.estudo.banco.auth.RegistrationService;
 import com.estudo.banco.support.PostgresTestBase;
+import com.estudo.banco.support.SessaoDeTeste;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -35,6 +37,13 @@ class IdempotencyTest extends PostgresTestBase {
 
     @Autowired
     MockMvc mvc;
+
+    @Autowired
+    RegistrationService registration;
+
+    private jakarta.servlet.http.Cookie sessao() throws Exception {
+        return SessaoDeTeste.criar(mvc, registration, "idem").cookie();
+    }
 
     @Test
     void mesmaChaveDuasVezesMoveDinheiroUmaVez() {
@@ -117,7 +126,7 @@ class IdempotencyTest extends PostgresTestBase {
         Long origem = novaConta("Origem", "1000.00");
         Long destino = novaConta("Destino", "0.00");
 
-        mvc.perform(post("/api/transfers")
+        mvc.perform(post("/api/transfers").cookie(sessao())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo(origem, destino, "10.00")))
                 .andExpect(status().isBadRequest())
@@ -132,7 +141,7 @@ class IdempotencyTest extends PostgresTestBase {
         Long origem = novaConta("Origem", "1000.00");
         Long destino = novaConta("Destino", "0.00");
 
-        mvc.perform(post("/api/transfers")
+        mvc.perform(post("/api/transfers").cookie(sessao())
                         .header("Idempotency-Key", "   ")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo(origem, destino, "10.00")))
@@ -146,7 +155,7 @@ class IdempotencyTest extends PostgresTestBase {
         Long origem = novaConta("Origem", "1000.00");
         Long destino = novaConta("Destino", "0.00");
 
-        mvc.perform(post("/api/transfers")
+        mvc.perform(post("/api/transfers").cookie(sessao())
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo(origem, destino, "250.00")))

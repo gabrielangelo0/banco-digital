@@ -69,4 +69,37 @@ public class NotificationService {
             }
         }
     }
+
+    /**
+     * Encerra todas as inscricoes de uma conta.
+     *
+     * Chamado quando a sessao e revogada: impedir conexoes novas nao basta, o
+     * stream ja aberto continuaria entregando movimentacao para uma sessao que
+     * nao existe mais.
+     */
+    public void encerrarInscricoes(Long accountId) {
+        Set<SseEmitter> emitters = inscritos.remove(accountId);
+        if (emitters == null) {
+            return;
+        }
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.complete();
+            } catch (RuntimeException ignorado) {
+                // Emitter ja morto nao e problema: o objetivo e que ele pare.
+            }
+        }
+    }
+
+    /**
+     * Quantos clientes estao ouvindo esta conta agora.
+     *
+     * Observabilidade: numero de conexoes vivas por conta e o que diz se o
+     * stream esta sendo usado, e e tambem como se prova que revogar a sessao
+     * desmontou a inscricao.
+     */
+    public int quantidadeDeInscritos(Long accountId) {
+        Set<SseEmitter> emitters = inscritos.get(accountId);
+        return emitters == null ? 0 : emitters.size();
+    }
 }
