@@ -27,6 +27,9 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
     "SELECT id, holder_name, balance FROM accounts WHERE owner_id IS NOT NULL ORDER BY id LIMIT 2;"
 
 echo
-echo "A restauracao roda sozinha de hora em hora dentro da aplicacao."
-echo "Para disparar antes da hora, reinicie o backend:"
-echo "  docker compose -f $COMPOSE_FILE --env-file $ENV_FILE restart backend"
+echo "A restauracao roda sozinha de hora em hora dentro da aplicacao, no minuto"
+echo "zero (banco.demo.reset-cron). NAO existe gatilho manual: reiniciar o"
+echo "backend nao dispara nada, so recoloca o agendador de pe."
+echo
+echo "Para antecipar, mude o cron e reinicie o backend:"
+echo "  BANCO_DEMO_RESET_CRON='0 */5 * * * *'"

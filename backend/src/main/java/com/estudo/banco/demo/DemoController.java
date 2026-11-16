@@ -1,10 +1,14 @@
 package com.estudo.banco.demo;
 
 import com.estudo.banco.account.AccountRepository;
+import com.estudo.banco.auth.AttemptLimiter;
+import com.estudo.banco.auth.ClientIpResolver;
 import com.estudo.banco.auth.SessionCookie;
 import com.estudo.banco.auth.SessionStore;
 import com.estudo.banco.error.AcessoNegadoException;
+import com.estudo.banco.error.MuitasTentativasException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,16 +35,28 @@ public class DemoController {
     public record EntrarComoVisitante(@NotNull Long accountId) {
     }
 
+    /**
+     * Entrar como visitante nao custa hash nenhum, mas cria sessao no Redis
+     * - e um Redis com teto de memoria. Vinte entradas por IP a cada quinze
+     * minutos e mais do que qualquer pessoa curiosa precisa.
+     */
+    static final int TETO_IP_VISITANTE = 20;
+
     private final DemoAccounts demo;
     private final AccountRepository contas;
     private final SessionStore sessoes;
+    private final AttemptLimiter tentativas;
+    private final ClientIpResolver proxy;
     private final String senhaTransacional;
 
     public DemoController(DemoAccounts demo, AccountRepository contas, SessionStore sessoes,
+                          AttemptLimiter tentativas, ClientIpResolver proxy,
                           @Value("${banco.demo.transaction-password}") String senhaTransacional) {
         this.demo = demo;
         this.contas = contas;
         this.sessoes = sessoes;
+        this.tentativas = tentativas;
+        this.proxy = proxy;
         this.senhaTransacional = senhaTransacional;
     }
 
@@ -58,8 +74,15 @@ public class DemoController {
     }
 
     @PostMapping("/api/auth/guest")
-    public ResponseEntity<Void> entrar(@RequestBody EntrarComoVisitante pedido,
+    public ResponseEntity<Void> entrar(@Valid @RequestBody EntrarComoVisitante pedido,
                                        HttpServletRequest http) {
+        proxy.resolve(http).map(ip -> "ip-visitante:" + ip).ifPresent(chave -> {
+            if (tentativas.bloqueado(chave, TETO_IP_VISITANTE)) {
+                throw new MuitasTentativasException();
+            }
+            tentativas.registrar(chave);
+        });
+
         if (!demo.ehDemonstracao(pedido.accountId())) {
             throw new AcessoNegadoException();
         }
@@ -67,9 +90,10 @@ public class DemoController {
                 .map(c -> c.getOwnerId())
                 .orElseThrow(AcessoNegadoException::new);
 
-        String token = sessoes.create(dono);
+        String token = sessoes.create(dono, SessionStore.TTL_VISITANTE);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, SessionCookie.build(token, http.isSecure()).toString())
+                .header(HttpHeaders.SET_COOKIE,
+                        SessionCookie.build(token, proxy.ehHttps(http)).toString())
                 .build();
     }
 }

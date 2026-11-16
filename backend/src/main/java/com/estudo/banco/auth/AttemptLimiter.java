@@ -24,7 +24,15 @@ public class AttemptLimiter {
         this.redis = redis;
     }
 
-    public void registrarFalha(String chave) {
+    /**
+     * Conta um evento nesta chave.
+     *
+     * Para identidade o evento e a FALHA: errar a senha. Para cadastro e
+     * entrada de visitante o evento e a propria chamada, porque ali o custo
+     * esta na requisicao - cada cadastro sao dois Argon2id de 16 MB, e nao
+     * existe "falha" para contar.
+     */
+    public void registrar(String chave) {
         Long tentativas = redis.opsForValue().increment(chave(chave));
         if (tentativas != null && tentativas == 1L) {
             // A janela comeca na primeira falha, nao na ultima: senao uma
@@ -34,8 +42,19 @@ public class AttemptLimiter {
     }
 
     public boolean bloqueado(String chave) {
+        return bloqueado(chave, LIMITE);
+    }
+
+    /**
+     * Mesma contagem, teto proprio.
+     *
+     * O teto por IP nao pode ser o mesmo da identidade: cinco pessoas atras
+     * do mesmo NAT errando a senha uma vez cada nao sao um ataque, e tratar
+     * como ataque e justamente a falha mais votada do app do benchmark.
+     */
+    public boolean bloqueado(String chave, int limite) {
         String tentativas = redis.opsForValue().get(chave(chave));
-        return tentativas != null && Long.parseLong(tentativas) >= LIMITE;
+        return tentativas != null && Long.parseLong(tentativas) >= limite;
     }
 
     public void limpar(String chave) {

@@ -51,7 +51,7 @@ public class SenhaTransacionalGuard {
 
         if (hash == null || !encoder.matches(
                 senhaTransacional == null ? "" : senhaTransacional, hash)) {
-            tentativas.registrarFalha(chave);
+            tentativas.registrar(chave);
             throw new SenhaTransacionalInvalidaException();
         }
         tentativas.limpar(chave);

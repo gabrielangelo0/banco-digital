@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -24,24 +26,48 @@ public class AuthController {
     private final AccountRepository contas;
     private final NotificationService notificacoes;
     private final AttemptLimiter tentativas;
+    private final ClientIpResolver proxy;
+
+    /**
+     * Tetos por IP, maiores que o teto por identidade.
+     *
+     * Sem eles o bloqueio por identidade e contornado trocando o e-mail a
+     * cada tentativa, e cada tentativa custa um Argon2id de 16 MB - por
+     * desenho, inclusive para e-mail inexistente, que e como o tempo
+     * constante foi implementado. O cadastro custa dois.
+     */
+    static final int TETO_IP_LOGIN = 10;
+    static final int TETO_IP_CADASTRO = 5;
 
     public AuthController(RegistrationService registration,
                           AuthenticationService autenticacao,
                           SessionStore sessoes,
                           AccountRepository contas,
                           NotificationService notificacoes,
-                          AttemptLimiter tentativas) {
+                          AttemptLimiter tentativas,
+                          ClientIpResolver proxy) {
         this.registration = registration;
         this.autenticacao = autenticacao;
         this.sessoes = sessoes;
         this.contas = contas;
         this.notificacoes = notificacoes;
         this.tentativas = tentativas;
+        this.proxy = proxy;
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse registrar(@Valid @RequestBody RegisterRequest request) {
+    public RegisterResponse registrar(@Valid @RequestBody RegisterRequest request,
+                                      HttpServletRequest http) {
+        // Aqui o evento contado e a propria chamada, nao a falha: o custo
+        // esta em executar o cadastro, e nao existe "falha" para contar.
+        chaveDoIp(http, "ip-cadastro:").ifPresent(chave -> {
+            if (tentativas.bloqueado(chave, TETO_IP_CADASTRO)) {
+                throw new MuitasTentativasException();
+            }
+            tentativas.registrar(chave);
+        });
+
         Long contaId = registration.register(
                 request.email(), request.password(), request.transactionPassword());
         return new RegisterResponse(contaId);
@@ -51,7 +77,9 @@ public class AuthController {
     public ResponseEntity<Void> entrar(@Valid @RequestBody LoginRequest request,
                                        HttpServletRequest http) {
         String chave = "login:" + (request.email() == null ? "" : request.email().trim().toLowerCase());
-        if (tentativas.bloqueado(chave)) {
+        Optional<String> chaveIp = chaveDoIp(http, "ip-login:");
+        if (tentativas.bloqueado(chave)
+                || chaveIp.filter(c -> tentativas.bloqueado(c, TETO_IP_LOGIN)).isPresent()) {
             throw new MuitasTentativasException();
         }
 
@@ -59,16 +87,19 @@ public class AuthController {
         try {
             userId = autenticacao.autenticar(request.email(), request.password());
         } catch (CredenciaisInvalidasException e) {
-            tentativas.registrarFalha(chave);
+            tentativas.registrar(chave);
+            chaveIp.ifPresent(tentativas::registrar);
             throw e;
         }
+        // Limpa a identidade, nao o IP: quem acerta a propria senha nao
+        // zera o contador do endereco de onde veio o ataque.
         tentativas.limpar(chave);
 
         String token = sessoes.create(userId);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
-                        SessionCookie.build(token, http.isSecure()).toString())
+                        SessionCookie.build(token, proxy.ehHttps(http)).toString())
                 .build();
     }
 
@@ -99,8 +130,12 @@ public class AuthController {
     private ResponseEntity<Void> limparCookie(HttpServletRequest http) {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE,
-                        SessionCookie.expirada(http.isSecure()).toString())
+                        SessionCookie.expirada(proxy.ehHttps(http)).toString())
                 .build();
+    }
+
+    private Optional<String> chaveDoIp(HttpServletRequest http, String prefixo) {
+        return proxy.resolve(http).map(ip -> prefixo + ip);
     }
 
     private void encerrarStreams(Long userId) {

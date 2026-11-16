@@ -21,6 +21,12 @@
 		-Server
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
+		# O cookie de sessao sai com Secure, mas a PRIMEIRA visita a http://
+		# acontece antes de qualquer redirecionamento - e e ela que pode
+		# levar o cookie em texto claro. O HSTS faz o navegador nunca mais
+		# tentar http:// neste host. So vale sob TLS: com SITE_ADDRESS=:80
+		# os navegadores ignoram o cabecalho.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	}
 
 	# Cache, em duas regras MUTUAMENTE EXCLUSIVAS.

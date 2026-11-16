@@ -26,6 +26,13 @@ public class SessionStore {
 
     static final Duration TTL = Duration.ofDays(7);
 
+    /**
+     * Visitante nunca faz logout: cada clique no demo deixaria uma sessao de
+     * sete dias que so `revokeAll` apaga. Duas horas bastam para olhar o
+     * projeto e mantem o estado no Redis limitado.
+     */
+    public static final Duration TTL_VISITANTE = Duration.ofHours(2);
+
     private final StringRedisTemplate redis;
     private final SecureRandom aleatorio = new SecureRandom();
 
@@ -34,13 +41,19 @@ public class SessionStore {
     }
 
     public String create(Long userId) {
+        return create(userId, TTL);
+    }
+
+    public String create(Long userId, Duration ttl) {
         byte[] bytes = new byte[32];
         aleatorio.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 
-        redis.opsForValue().set(chave(token), String.valueOf(userId), TTL);
+        redis.opsForValue().set(chave(token), String.valueOf(userId), ttl);
         redis.opsForSet().add(indice(userId), token);
-        redis.expire(indice(userId), TTL);
+        // O indice expira junto: senao o conjunto do dono da conta de
+        // demonstracao acumularia tokens mortos por sete dias.
+        redis.expire(indice(userId), ttl);
         return token;
     }
 

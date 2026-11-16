@@ -1,5 +1,8 @@
 package com.estudo.banco.transfer;
 
+import com.estudo.banco.demo.DemoAccounts;
+import com.estudo.banco.auth.UsuarioAtual;
+import com.estudo.banco.error.DestinoForaDaDemonstracaoException;
 import com.estudo.banco.error.TransferenciaInvalidaException;
 import com.estudo.banco.transfer.dto.TransferRequest;
 import com.estudo.banco.transfer.dto.TransferResponse;
@@ -12,13 +15,13 @@ public class TransferController {
 
     private final TransferService transfers;
     private final SenhaTransacionalGuard senhaTransacional;
-    private final com.estudo.banco.demo.DemoAccounts demo;
-    private final com.estudo.banco.auth.UsuarioAtual usuarioAtual;
+    private final DemoAccounts demo;
+    private final UsuarioAtual usuarioAtual;
 
     public TransferController(TransferService transfers,
                               SenhaTransacionalGuard senhaTransacional,
-                              com.estudo.banco.auth.UsuarioAtual usuarioAtual,
-                              com.estudo.banco.demo.DemoAccounts demo) {
+                              UsuarioAtual usuarioAtual,
+                              DemoAccounts demo) {
         this.transfers = transfers;
         this.senhaTransacional = senhaTransacional;
         this.usuarioAtual = usuarioAtual;
@@ -41,10 +44,17 @@ public class TransferController {
         // nem chegar ao executor.
         Long origem = usuarioAtual.contaId();
 
-        // Dinheiro nao escapa do par de contas de demonstracao: se escapasse,
-        // o reset nao teria de onde tirar a diferenca de volta.
-        if (demo.ehDemonstracao(origem) && !demo.ehDemonstracao(request.targetAccountId())) {
-            throw new com.estudo.banco.error.DestinoForaDaDemonstracaoException();
+        // O par de contas de demonstracao e FECHADO, nas duas direcoes.
+        //
+        // Dinheiro que sai nao tem de onde voltar; dinheiro que ENTRA muda a
+        // soma do par, e entao nenhuma transferencia interna devolve as duas
+        // contas ao saldo inicial - o reset horario deixa de fechar para
+        // sempre. Bloquear so a saida era meia regra, e o placeholder do
+        // campo de destino ("ex.: 2") convida justamente a outra metade.
+        boolean origemEhDemo = demo.ehDemonstracao(origem);
+        boolean destinoEhDemo = demo.ehDemonstracao(request.targetAccountId());
+        if (origemEhDemo != destinoEhDemo) {
+            throw new DestinoForaDaDemonstracaoException();
         }
 
         senhaTransacional.exigir(origem, request.transactionPassword());

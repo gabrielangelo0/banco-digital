@@ -4,9 +4,9 @@ Aplicação bancária de estudo: **Spring Boot 4 + Postgres** no backend, **Reac
 frontend. O objetivo não é ter muitas funcionalidades — é demonstrar, com testes que
 provam, como dinheiro se move entre contas sem se perder, duplicar ou travar.
 
-**Demo ao vivo: [bank.devfly.net](https://bank.devfly.net)** — duas contas já semeadas.
-Troque entre elas e transfira. A notificação que aparece no topo chega por SSE, não por
-polling: o backend empurra o evento quando a transferência fecha.
+**Demo ao vivo: [bank.devfly.net](https://bank.devfly.net)** — entre como visitante em uma
+das duas contas de demonstração e transfira para a outra. A notificação que aparece no topo
+chega por SSE, não por polling: o backend empurra o evento quando a transferência fecha.
 
 Há cadastro e login — e **duas senhas**: a de acesso prova quem você é, a transacional
 autoriza mover dinheiro. Autenticar não é autorizar. Para ver sem se cadastrar, entre como

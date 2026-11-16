@@ -108,4 +108,19 @@ class TransferAutenticadaTest extends PostgresTestBase {
 
         assertThat(somaDoSistema()).isEqualByComparingTo(antes);
     }
+
+    @Test
+    void respostaDaTransferenciaNaoRevelaSaldoDoDestino() throws Exception {
+        // Numero de conta e bigserial. Com o saldo do destino na resposta,
+        // varrer 1..N transforma a transferencia num diretorio de saldos
+        // alheios - autenticado, mas lendo dado de terceiro.
+        var sessao = SessaoDeTeste.criar(mvc, registration, "curiosa");
+        Long destino = novaConta("Alheia", "7342.55");
+
+        transferir(sessao, destino, "0.01", "123456")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceBalance").exists())
+                .andExpect(jsonPath("$.targetBalance").doesNotExist());
+    }
+
 }

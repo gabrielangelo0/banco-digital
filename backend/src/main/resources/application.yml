@@ -44,4 +44,7 @@ banco:
   # So estes enderecos tem o X-Forwarded-For respeitado. Qualquer outro, e o
   # cabecalho e ignorado: aceitar de todo mundo permite forjar IP, e confiar
   # num cabecalho ausente faz todo visitante compartilhar um IP so.
-  proxies-confiaveis: 127.0.0.1,::1
+  # As faixas privadas cobrem a rede interna do compose, onde o backend ve o
+  # IP do container do proxy (172.x, que muda a cada recriacao). A porta do
+  # backend nao e publicada no host: nada mais alcanca essa interface.
+  proxies-confiaveis: 127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16

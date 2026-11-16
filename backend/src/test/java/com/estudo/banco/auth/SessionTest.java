@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -94,4 +95,38 @@ class SessionTest extends PostgresTestBase {
 
         assertThat(SessionCookie.build("token-qualquer", true).isSecure()).isTrue();
     }
+
+    @Test
+    void cookieEhSecureQuandoOProxyConfiavelDizQueAOrigemEraHttps() throws Exception {
+        // Em producao o TLS termina no Caddy e o backend recebe HTTP puro.
+        // Com o Secure saindo de request.isSecure(), ele NUNCA e marcado em
+        // producao: uma visita a http:// manda o token em texto claro antes
+        // do redirecionamento. O teste da funcao isolada nao pega isso -
+        // ele prova que build() respeita o parametro, nao que alguem passa
+        // true em algum ambiente.
+        String endereco = email("sec");
+        registration.register(endereco, "senha-forte-1", "123456");
+
+        var resposta = mvc.perform(post("/api/auth/login")
+                .header("X-Forwarded-Proto", "https")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + endereco + "\",\"password\":\"senha-forte-1\"}"))
+                .andReturn().getResponse();
+
+        assertThat(resposta.getHeader(HttpHeaders.SET_COOKIE)).contains("Secure");
+    }
+
+    @Test
+    void semProxyDizendoHttpsOCookieNaoEhSecure() throws Exception {
+        // A outra metade: `npm run dev` e HTTP, e um cookie sempre Secure
+        // simplesmente nao e gravado - o login "funciona" e o usuario volta
+        // deslogado, sem erro nenhum.
+        String endereco = email("dev");
+        registration.register(endereco, "senha-forte-1", "123456");
+
+        var resposta = login(endereco, "senha-forte-1").getResponse();
+
+        assertThat(resposta.getHeader(HttpHeaders.SET_COOKIE)).doesNotContain("Secure");
+    }
+
 }

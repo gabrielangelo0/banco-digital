@@ -1,7 +1,9 @@
 package com.estudo.banco.notification;
 
+import com.estudo.banco.auth.SessionCookie;
 import com.estudo.banco.auth.UsuarioAtual;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,7 +26,10 @@ public class NotificationController {
      * assinava o fluxo de qualquer conta so trocando um numero na URL.
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream() {
-        return notificacoes.subscribe(usuarioAtual.contaId());
+    public SseEmitter stream(
+            @CookieValue(value = SessionCookie.NOME, required = false) String token) {
+        // O token acompanha a inscricao para que a EXPIRACAO da sessao
+        // tambem encerre o stream, e nao so o logout.
+        return notificacoes.subscribe(usuarioAtual.contaId(), token);
     }
 }

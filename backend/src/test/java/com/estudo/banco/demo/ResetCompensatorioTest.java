@@ -79,4 +79,27 @@ class ResetCompensatorioTest extends PostgresTestBase {
 
         assertThat(entries.count()).isEqualTo(depoisDoPrimeiro);
     }
+
+    @Test
+    void resetDizQueNaoFechouQuandoDinheiroEntrouNoParDeFora() {
+        // Dinheiro que entra de fora muda a SOMA do par, e nenhuma
+        // transferencia entre as duas contas devolve as duas ao inicial. O
+        // reset conferia SO a primeira conta e confiava na conservacao da
+        // soma: com a soma quebrada, ele "fechava" a primeira e deixava a
+        // segunda inflada para sempre, em silencio.
+        //
+        // O credito entra por SQL de proposito: o caminho normal passou a
+        // recusar essa direcao, e e exatamente o estado legado que precisa
+        // ser detectado.
+        jdbc.update("update accounts set balance = balance + 100 where id = 1");
+        try {
+            boolean fechou = reset.restaurar();
+
+            assertThat(fechou).isFalse();
+            assertThat(saldo(1L)).isEqualByComparingTo("1000.0000");
+            assertThat(saldo(2L)).isEqualByComparingTo("600.0000");
+        } finally {
+            jdbc.update("update accounts set balance = balance - 100 where id = 2");
+        }
+    }
 }

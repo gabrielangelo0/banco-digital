@@ -89,7 +89,7 @@ class EscopoDeRotasTest extends PostgresTestBase {
         // morta continua recebendo movimentacao da conta.
         Sessao sessao = entrar("lua");
 
-        notificacoes.subscribe(sessao.contaId());
+        notificacoes.subscribe(sessao.contaId(), sessao.cookie().getValue());
         assertThat(notificacoes.quantidadeDeInscritos(sessao.contaId())).isEqualTo(1);
 
         mvc.perform(post("/api/auth/logout").cookie(sessao.cookie()))

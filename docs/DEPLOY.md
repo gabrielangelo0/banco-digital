@@ -133,20 +133,57 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod ps
 
 `backend` precisa aparecer como `healthy`, não apenas `running`.
 
-**A API responde através do proxy:**
+**O roteamento do `/api` pegou:**
 
 ```bash
 curl -s https://banco.seudominio.com/api/accounts
 ```
 
-Duas contas com saldo. Se vier o HTML do `index.html` em vez de JSON, o
-roteamento do `/api` não pegou.
+Agora toda rota de `/api` exige sessão, então a resposta correta aqui é
+`{"code":"SEM_SESSAO","message":...}` com status 401 — e isso já responde o
+que esta checagem sempre quis responder: se vier o **HTML do `index.html`** em
+vez de JSON, o `/api` está caindo no servidor de estáticos. Foi assim que se
+descobriu, uma vez, que a porta respondida era de outra aplicação.
+
+**Uma sessão para as checagens seguintes.** Com `BANCO_DEMO_ENABLED=true`:
+
+```bash
+curl -s -c /tmp/banco.cookies -o /dev/null -w '%{http_code}\n' \
+  -X POST https://banco.seudominio.com/api/auth/guest \
+  -H 'Content-Type: application/json' -d '{"accountId":1}'
+```
+
+`200`. Com a demonstração desligada, use `/api/auth/register` e depois
+`/api/auth/login` com um e-mail descartável.
+
+**O cookie de sessão sai com `Secure`** — a outra falha silenciosa, porque o
+TLS termina no proxy e o backend recebe HTTP puro:
+
+```bash
+grep -io 'set-cookie:.*' /tmp/banco.cookies >/dev/null; \
+curl -s -D - -o /dev/null -X POST https://banco.seudominio.com/api/auth/guest \
+  -H 'Content-Type: application/json' -d '{"accountId":1}' | grep -i '^set-cookie'
+```
+
+A linha precisa conter `Secure`, `HttpOnly` e `SameSite=Lax`. Se faltar
+`Secure`, o proxy à frente não está mandando `X-Forwarded-Proto: https`, ou o
+endereço dele não casa com `banco.proxies-confiaveis` — e aí uma única visita
+a `http://` manda o token de sessão em texto claro.
+
+**A API responde autenticada:**
+
+```bash
+curl -s -b /tmp/banco.cookies https://banco.seudominio.com/api/accounts
+```
+
+**Uma** conta, com saldo: a da sessão. Duas contas aqui seria um defeito de
+autorização.
 
 **O SSE realmente transmite** — esta é a checagem que importa, porque é a que
 falha em silêncio:
 
 ```bash
-curl -N -s https://banco.seudominio.com/api/notifications/stream?accountId=1
+curl -N -s -b /tmp/banco.cookies https://banco.seudominio.com/api/notifications/stream
 ```
 
 Deve imprimir, **na hora**, um evento `ready`:
@@ -162,6 +199,8 @@ para o Caddy; se você puser outro proxy na frente (nginx, Cloudflare, um load
 balancer do provedor), ele precisa do equivalente — no nginx,
 `proxy_buffering off`. Deixe o `curl -N` aberto, faça uma transferência pelo
 app noutra aba e veja o evento `transfer` chegar.
+
+Ao terminar, `rm -f /tmp/banco.cookies`: aquele arquivo é uma sessão válida.
 
 Por último, abra o app no celular. Se o HTTPS estiver válido, o navegador
 oferece instalar — é o PWA. Sem HTTPS não há service worker, e sem service
@@ -357,8 +396,11 @@ Dito com clareza, porque um deploy honesto declara seus limites:
 - **Segundo fator.** Mesma razão.
 - **Rate limiting de borda.** O Caddy padrão não traz. Há bloqueio progressivo
   por identidade na aplicação, que é o que contém força bruta em login e senha
-  transacional; o limite por IP só vale quando o `X-Forwarded-For` vem de um
-  proxy declarado em `banco.proxies-confiaveis`. Volume de borda, se um dia
+  transacional, mais um teto por IP em login, cadastro e entrada de visitante.
+  O teto por IP só vale quando o `X-Forwarded-For` vem de um endereço que casa
+  com `banco.proxies-confiaveis` — cujo default cobre as faixas privadas, onde
+  fica a rede interna do compose. Com outra topologia, confira esse valor: sem
+  ele o cabeçalho é descartado e só o bloqueio por identidade continua valendo. Volume de borda, se um dia
   justificar, a Cloudflare resolve sem mexer na stack.
 - **Backup automático.** O comando de `pg_dump` está na §5, mas nada o agenda.
   Para um demo, o `reset-demo.sh` cobre a necessidade real.

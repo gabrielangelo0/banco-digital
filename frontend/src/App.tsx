@@ -17,7 +17,7 @@ const ACOES = [
   { icone: '＋', nome: 'Depositar' },
 ]
 
-type Estado = 'carregando' | 'deslogado' | 'cadastrando' | 'logado'
+type Estado = 'carregando' | 'deslogado' | 'cadastrando' | 'logado' | 'erro'
 
 export default function App() {
   const [estado, setEstado] = useState<Estado>('carregando')
@@ -44,6 +44,13 @@ export default function App() {
         return
       }
       setErro(e instanceof Error ? e.message : 'Falha ao carregar')
+      // Sem isto a tela fica em "Carregando…" para sempre: `erro` so e
+      // renderizado dentro da tela logada, onde ninguem chega. Backend
+      // reiniciando e a primeira coisa que o visitante veria.
+      //
+      // Quem JA esta logado continua logado: um refresh que falhou nao
+      // derruba quem esta dentro, so mostra o erro no lugar do extrato.
+      setEstado((atual) => (atual === 'logado' ? atual : 'erro'))
     }
   }, [])
 
@@ -69,6 +76,29 @@ export default function App() {
 
   if (estado === 'carregando') {
     return <div className="app"><p className="vazio">Carregando…</p></div>
+  }
+
+  if (estado === 'erro') {
+    return (
+      <div className="app">
+        <div className="bloco">
+          {/* A mensagem da API ("Falha 500") nao diz nada a quem esta
+              olhando. A frase vem primeiro; o detalhe tecnico fica embaixo,
+              para quem souber o que fazer com ele. */}
+          <p className="vazio">Não foi possível falar com o servidor.</p>
+          {erro && <p className="vazio">{erro}</p>}
+          <button
+            className="botao-texto"
+            onClick={() => {
+              setEstado('carregando')
+              void carregar()
+            }}
+          >
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (estado === 'deslogado') {

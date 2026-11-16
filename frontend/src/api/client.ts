@@ -16,7 +16,6 @@ export type TransferResponse = {
   transferId: string
   status: 'COMPLETED' | 'FAILED'
   sourceBalance: string | number
-  targetBalance: string | number
 }
 
 export type ApiError = { code: string; message: string }

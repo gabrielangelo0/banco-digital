@@ -52,15 +52,24 @@ public class DemoResetService {
         restaurar();
     }
 
-    public void restaurar() {
+    /**
+     * @return true quando as DUAS contas terminaram no saldo inicial.
+     *
+     * Conferir so a primeira e confiar na conservacao da soma era a falha:
+     * a soma do par e invariante apenas enquanto o par e fechado. Se algum
+     * dinheiro entrou de fora, a compensacao interna acerta uma conta e
+     * deixa a outra errada - e, sem este retorno, o reset saia em silencio
+     * achando que tinha fechado.
+     */
+    public boolean restaurar() {
         if (demo.ids().size() != 2 || saldosIniciais.size() != 2) {
             log.warn("reset da demonstracao ignorado: esperava exatamente duas contas");
-            return;
+            return false;
         }
         Long primeira = demo.ids().get(0);
         Long segunda = demo.ids().get(1);
 
-        BigDecimal atual = contas.findById(primeira).orElseThrow().getBalance();
+        BigDecimal atual = saldoDe(primeira);
         BigDecimal alvo = saldosIniciais.get(0);
         // O saldo e NUMERIC(19,4) e o dominio recusa mais de duas casas: a
         // diferenca precisa voltar a centavos. RoundingMode.UNNECESSARY de
@@ -68,19 +77,41 @@ public class DemoResetService {
         // nao um arredondamento silencioso de dinheiro.
         BigDecimal diferenca = atual.subtract(alvo).setScale(2, RoundingMode.UNNECESSARY);
 
-        if (diferenca.signum() == 0) {
-            return;
+        if (diferenca.signum() != 0) {
+            // Positiva: a primeira tem demais, devolve para a segunda. Negativa:
+            // o contrario. Em qualquer caso e uma transferencia comum, pelo
+            // caminho normal, com as mesmas garantias de qualquer outra.
+            Long origem = diferenca.signum() > 0 ? primeira : segunda;
+            Long destino = diferenca.signum() > 0 ? segunda : primeira;
+            try {
+                transferencias.execute(new TransferCommand(
+                        origem, destino, diferenca.abs(), "reset-demo-" + UUID.randomUUID()));
+                log.info("demonstracao restaurada por lancamento compensatorio de {}",
+                        diferenca.abs());
+            } catch (RuntimeException e) {
+                // Agendador que estoura excecao de hora em hora nao conserta
+                // nada e enche o log sem dizer o que aconteceu.
+                log.warn("reset da demonstracao falhou ao compensar {}: {}",
+                        diferenca.abs(), e.getMessage());
+                return false;
+            }
         }
 
-        // Positiva: a primeira tem demais, devolve para a segunda. Negativa: o
-        // contrario. Em qualquer caso e uma transferencia comum, pelo caminho
-        // normal, com as mesmas garantias de qualquer outra.
-        Long origem = diferenca.signum() > 0 ? primeira : segunda;
-        Long destino = diferenca.signum() > 0 ? segunda : primeira;
+        boolean fechou = saldoDe(primeira).compareTo(saldosIniciais.get(0)) == 0
+                && saldoDe(segunda).compareTo(saldosIniciais.get(1)) == 0;
 
-        transferencias.execute(new TransferCommand(
-                origem, destino, diferenca.abs(), "reset-demo-" + UUID.randomUUID()));
+        if (!fechou) {
+            log.warn("demonstracao NAO fechou: conta {} em {} (alvo {}), conta {} em {} (alvo {})."
+                            + " Isso significa que dinheiro entrou ou saiu do par por fora -"
+                            + " nenhuma transferencia interna devolve as duas ao inicial.",
+                    primeira, saldoDe(primeira), saldosIniciais.get(0),
+                    segunda, saldoDe(segunda), saldosIniciais.get(1));
+        }
+        return fechou;
+    }
 
-        log.info("demonstracao restaurada por lancamento compensatorio de {}", diferenca.abs());
+    private BigDecimal saldoDe(Long contaId) {
+        return contas.findById(contaId).orElseThrow(() -> new IllegalStateException(
+                "conta de demonstracao " + contaId + " nao existe")).getBalance();
     }
 }

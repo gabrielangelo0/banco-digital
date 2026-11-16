@@ -11,6 +11,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
+import com.estudo.banco.support.SessaoDeTeste;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -106,4 +109,55 @@ class EntradaDeVisitanteTest extends PostgresTestBase {
                 .content("{\"targetAccountId\":2,\"amount\":\"1.00\",\"transactionPassword\":\"demo123\"}"))
                 .andExpect(status().isOk());
     }
+
+    @Autowired
+    StringRedisTemplate redis;
+
+    @Test
+    void contaRegistradaNaoTransfereParaContaDeDemonstracao() throws Exception {
+        // A regra tem DUAS direcoes. Bloquear so a saida deixa o dinheiro
+        // ENTRAR no par: a soma do par muda, e o reset horario passa a nunca
+        // mais fechar - o placeholder do proprio campo sugere digitar "2".
+        var sessao = SessaoDeTeste.criar(mvc, registration, "ari");
+
+        mvc.perform(post("/api/transfers")
+                .cookie(sessao.cookie())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"targetAccountId\":2,\"amount\":\"1.00\",\"transactionPassword\":\"123456\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DESTINO_FORA_DA_DEMONSTRACAO"));
+    }
+
+    @Test
+    void sessaoDeVisitanteExpiraRapido() throws Exception {
+        // Visitante nunca sai: cada clique deixa uma sessao de 7 dias no
+        // Redis, e nada a revoga. Num demo publico isso e estado ilimitado
+        // num Redis com teto de memoria.
+        Cookie cookie = entrarComoVisitante(1L);
+
+        Long segundos = redis.getExpire("sessao:" + cookie.getValue());
+
+        assertThat(segundos).isNotNull();
+        assertThat(segundos).isLessThanOrEqualTo(Duration.ofHours(2).toSeconds());
+    }
+
+    @Test
+    void entradaDeVisitanteTemTetoPorIp() throws Exception {
+        String ip = "198.51.100.44";
+        for (int i = 0; i < 20; i++) {
+            mvc.perform(post("/api/auth/guest")
+                    .header("X-Forwarded-For", ip)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"accountId\":1}"))
+                    .andExpect(status().isOk());
+        }
+
+        mvc.perform(post("/api/auth/guest")
+                .header("X-Forwarded-For", ip)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"accountId\":1}"))
+                .andExpect(status().isTooManyRequests());
+    }
+
 }
