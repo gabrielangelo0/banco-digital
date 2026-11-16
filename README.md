@@ -6,7 +6,9 @@ provam, como dinheiro se move entre contas sem se perder, duplicar ou travar.
 
 **Demo ao vivo: [bank.devfly.net](https://bank.devfly.net)** — duas contas já semeadas.
 Troque entre elas e transfira. A notificação que aparece no topo chega por SSE, não por
-polling: o backend empurra o evento quando a transferência fecha.
+polling: o backend empurra o evento quando a transferência fecha. Os saldos
+voltam ao estado inicial a cada hora — não há autenticação, e isso é um não-objetivo
+declarado, não um esquecimento.
 
 <p align="center">
   <img src="docs/demo.png"
