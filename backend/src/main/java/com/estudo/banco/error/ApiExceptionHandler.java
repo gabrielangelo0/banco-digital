@@ -30,6 +30,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
     }
 
+    @ExceptionHandler(MuitasTentativasException.class)
+    public ResponseEntity<ApiError> muitasTentativas(MuitasTentativasException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(new ApiError("MUITAS_TENTATIVAS", e.getMessage()));
+    }
+
     @ExceptionHandler(SenhaTransacionalInvalidaException.class)
     public ResponseEntity<ApiError> senhaTransacionalInvalida(SenhaTransacionalInvalidaException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

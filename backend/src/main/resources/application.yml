@@ -30,3 +30,9 @@ management:
     web:
       exposure:
         include: health,info
+
+banco:
+  # So estes enderecos tem o X-Forwarded-For respeitado. Qualquer outro, e o
+  # cabecalho e ignorado: aceitar de todo mundo permite forjar IP, e confiar
+  # num cabecalho ausente faz todo visitante compartilhar um IP so.
+  proxies-confiaveis: 127.0.0.1,::1

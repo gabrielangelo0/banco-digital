@@ -4,6 +4,8 @@ import com.estudo.banco.account.AccountRepository;
 import com.estudo.banco.auth.dto.LoginRequest;
 import com.estudo.banco.auth.dto.RegisterRequest;
 import com.estudo.banco.auth.dto.RegisterResponse;
+import com.estudo.banco.error.CredenciaisInvalidasException;
+import com.estudo.banco.error.MuitasTentativasException;
 import com.estudo.banco.notification.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,17 +23,20 @@ public class AuthController {
     private final SessionStore sessoes;
     private final AccountRepository contas;
     private final NotificationService notificacoes;
+    private final AttemptLimiter tentativas;
 
     public AuthController(RegistrationService registration,
                           AuthenticationService autenticacao,
                           SessionStore sessoes,
                           AccountRepository contas,
-                          NotificationService notificacoes) {
+                          NotificationService notificacoes,
+                          AttemptLimiter tentativas) {
         this.registration = registration;
         this.autenticacao = autenticacao;
         this.sessoes = sessoes;
         this.contas = contas;
         this.notificacoes = notificacoes;
+        this.tentativas = tentativas;
     }
 
     @PostMapping("/register")
@@ -45,7 +50,20 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Void> entrar(@Valid @RequestBody LoginRequest request,
                                        HttpServletRequest http) {
-        Long userId = autenticacao.autenticar(request.email(), request.password());
+        String chave = "login:" + (request.email() == null ? "" : request.email().trim().toLowerCase());
+        if (tentativas.bloqueado(chave)) {
+            throw new MuitasTentativasException();
+        }
+
+        Long userId;
+        try {
+            userId = autenticacao.autenticar(request.email(), request.password());
+        } catch (CredenciaisInvalidasException e) {
+            tentativas.registrarFalha(chave);
+            throw e;
+        }
+        tentativas.limpar(chave);
+
         String token = sessoes.create(userId);
 
         return ResponseEntity.ok()
