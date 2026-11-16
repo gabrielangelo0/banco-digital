@@ -41,8 +41,8 @@ class IdempotencyTest extends PostgresTestBase {
     @Autowired
     RegistrationService registration;
 
-    private jakarta.servlet.http.Cookie sessao() throws Exception {
-        return SessaoDeTeste.criar(mvc, registration, "idem").cookie();
+    private SessaoDeTeste.Sessao sessao() throws Exception {
+        return SessaoDeTeste.criar(mvc, registration, "idem");
     }
 
     @Test
@@ -123,12 +123,14 @@ class IdempotencyTest extends PostgresTestBase {
 
     @Test
     void headerAusenteRetorna400() throws Exception {
-        Long origem = novaConta("Origem", "1000.00");
+        // A origem e a conta da sessao: quem se cadastra nasce com 1000.
+        var sessao = sessao();
+        Long origem = sessao.contaId();
         Long destino = novaConta("Destino", "0.00");
 
-        mvc.perform(post("/api/transfers").cookie(sessao())
+        mvc.perform(post("/api/transfers").cookie(sessao.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(corpo(origem, destino, "10.00")))
+                        .content(corpo(destino, "10.00")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
                         org.hamcrest.Matchers.containsString("Idempotency-Key")));
@@ -138,13 +140,14 @@ class IdempotencyTest extends PostgresTestBase {
 
     @Test
     void headerEmBrancoRetorna400() throws Exception {
-        Long origem = novaConta("Origem", "1000.00");
+        var sessao = sessao();
+        Long origem = sessao.contaId();
         Long destino = novaConta("Destino", "0.00");
 
-        mvc.perform(post("/api/transfers").cookie(sessao())
+        mvc.perform(post("/api/transfers").cookie(sessao.cookie())
                         .header("Idempotency-Key", "   ")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(corpo(origem, destino, "10.00")))
+                        .content(corpo(destino, "10.00")))
                 .andExpect(status().isBadRequest());
 
         assertThat(saldoDe(origem)).isEqualByComparingTo("1000.00");
@@ -152,22 +155,25 @@ class IdempotencyTest extends PostgresTestBase {
 
     @Test
     void requisicaoValidaViaHttpRetorna200() throws Exception {
-        Long origem = novaConta("Origem", "1000.00");
+        var sessao = sessao();
+        Long origem = sessao.contaId();
         Long destino = novaConta("Destino", "0.00");
 
-        mvc.perform(post("/api/transfers").cookie(sessao())
+        mvc.perform(post("/api/transfers").cookie(sessao.cookie())
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(corpo(origem, destino, "250.00")))
+                        .content(corpo(destino, "250.00")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
         assertThat(saldoDe(origem)).isEqualByComparingTo("750.00");
     }
 
-    private String corpo(Long origem, Long destino, String valor) {
+    private String corpo(Long destino, String valor) {
+        // Sem sourceAccountId: a origem e a conta da sessao. A senha
+        // transacional e a que SessaoDeTeste cadastra.
         return """
-                {"sourceAccountId": %d, "targetAccountId": %d, "amount": %s}
-                """.formatted(origem, destino, valor);
+                {"targetAccountId": %d, "amount": %s, "transactionPassword": "123456"}
+                """.formatted(destino, valor);
     }
 }

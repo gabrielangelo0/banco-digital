@@ -11,9 +11,15 @@ import org.springframework.web.bind.annotation.*;
 public class TransferController {
 
     private final TransferService transfers;
+    private final SenhaTransacionalGuard senhaTransacional;
+    private final com.estudo.banco.auth.UsuarioAtual usuarioAtual;
 
-    public TransferController(TransferService transfers) {
+    public TransferController(TransferService transfers,
+                              SenhaTransacionalGuard senhaTransacional,
+                              com.estudo.banco.auth.UsuarioAtual usuarioAtual) {
         this.transfers = transfers;
+        this.senhaTransacional = senhaTransacional;
+        this.usuarioAtual = usuarioAtual;
     }
 
     @PostMapping
@@ -28,9 +34,13 @@ public class TransferController {
                     "Header Idempotency-Key e obrigatorio");
         }
 
+        // Autorizar antes de qualquer transacao abrir. Senha errada nao deve
+        // nem chegar ao executor.
+        Long origem = usuarioAtual.contaId();
+        senhaTransacional.exigir(origem, request.transactionPassword());
+
         TransferResult resultado = transfers.execute(new TransferCommand(
-                request.sourceAccountId(), request.targetAccountId(),
-                request.amount(), idempotencyKey));
+                origem, request.targetAccountId(), request.amount(), idempotencyKey));
 
         return TransferResponse.from(resultado);
     }

@@ -30,6 +30,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
     }
 
+    @ExceptionHandler(SenhaTransacionalInvalidaException.class)
+    public ResponseEntity<ApiError> senhaTransacionalInvalida(SenhaTransacionalInvalidaException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiError("SENHA_TRANSACIONAL_INVALIDA", e.getMessage()));
+    }
+
     @ExceptionHandler(AcessoNegadoException.class)
     public ResponseEntity<ApiError> acessoNegado(AcessoNegadoException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
