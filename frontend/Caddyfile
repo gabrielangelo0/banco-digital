@@ -23,22 +23,25 @@
 		Referrer-Policy strict-origin-when-cross-origin
 	}
 
-	# Cache, em duas regras, e a ORDEM importa.
+	# Cache, em duas regras MUTUAMENTE EXCLUSIVAS.
 	#
-	# Padrao: no-cache em tudo. Nao significa "nao guarde", e sim "revalide antes
-	# de usar" - o custo de acerto e um 304. Sem este header o Caddy nao manda
-	# nenhum, e ai o navegador aplica cache HEURISTICO: inventa um prazo a partir
-	# do Last-Modified e passa a servir o index.html antigo depois de um deploy.
-	# O usuario fica preso numa versao velha do app, o sw.js nunca atualiza, e
-	# nada disso aparece em log nenhum - do lado do servidor esta tudo certo.
-	header Cache-Control "no-cache"
+	# Elas nao se sobrepoem de proposito. Duas regras `header` que casam o mesmo
+	# caminho dependem de uma ordem de aplicacao que nao e obvia: com uma global
+	# mais uma especifica para /assets/*, a global venceu e os bundles sairam
+	# com no-cache. Com `not`, cada resposta casa exatamente uma regra.
 
-	# Excecao: o Vite emite os bundles com hash no nome, entao eles podem ser
-	# cacheados para sempre - um deploy novo gera nomes novos. Esta regra vem
-	# DEPOIS da anterior de proposito: as duas executam na ordem escrita, e quem
-	# escreve por ultimo vence.
+	# Os bundles do Vite tem hash no nome, entao um deploy novo gera nomes novos
+	# e os antigos podem ser cacheados para sempre.
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Todo o resto revalida. `no-cache` nao proibe guardar, exige revalidar - o
+	# custo de um acerto e um 304. Sem header nenhum, o navegador aplica cache
+	# HEURISTICO a partir do Last-Modified e passa a servir o index.html antigo
+	# depois de um deploy: o app fica preso numa versao velha, o sw.js nunca
+	# atualiza, e nada disso aparece em log - do lado do servidor esta tudo certo.
+	@demais not path /assets/*
+	header @demais Cache-Control "no-cache"
 
 	# -----------------------------------------------------------------------
 	# SSE - a armadilha que quebra em silencio.
