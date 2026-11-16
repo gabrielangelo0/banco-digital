@@ -20,3 +20,20 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: banco-redis
+    restart: unless-stopped
+    # Persistencia ligada: sessao no Redis sem persistencia significa que um
+    # restart desloga todo mundo de uma vez.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Publicada so para o backend rodar fora do Docker em desenvolvimento.
+      - "127.0.0.1:6379:6379"
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10

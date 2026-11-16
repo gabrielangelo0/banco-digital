@@ -60,6 +60,11 @@
 			<artifactId>spring-security-crypto</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
 		<!-- O Argon2PasswordEncoder depende do BouncyCastle em tempo de execucao. -->
 		<dependency>
 			<groupId>org.bouncycastle</groupId>

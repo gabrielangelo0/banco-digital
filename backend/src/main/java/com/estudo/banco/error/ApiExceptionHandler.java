@@ -30,6 +30,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
     }
 
+    @ExceptionHandler(CredenciaisInvalidasException.class)
+    public ResponseEntity<ApiError> credenciaisInvalidas(CredenciaisInvalidasException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiError("CREDENCIAIS_INVALIDAS", e.getMessage()));
+    }
+
     @ExceptionHandler(CadastroInvalidoException.class)
     public ResponseEntity<ApiError> cadastroInvalido(CadastroInvalidoException e) {
         // 409, e a mensagem nao diz QUAL regra falhou: distinguir "e-mail ja
