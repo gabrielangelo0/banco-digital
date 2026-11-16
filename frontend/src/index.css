@@ -1,13 +1,15 @@
 /* ---------------------------------------------------------------------------
- * Banco - folha unica.
+ * Banco - folha unica, tema escuro.
  *
- * Uma regra guia o arquivo inteiro: o DINHEIRO e a unica coisa que pode ser
- * alta. Painel de saldo em violeta profundo, valores em peso 700 com
- * algarismos tabulares - e todo o resto quieto, em tinta fraca, sem sombra
- * decorativa e sem rotulo em caixa alta.
+ * A regra que organiza tudo: o DINHEIRO e a unica coisa que pode ser alta.
+ * O saldo nao mora num cartao - ele vive sobre o fundo, com o brilho violeta
+ * atras, e e a maior coisa da tela por uma margem larga. Todo o resto e
+ * tinta fraca sobre quase preto: sem rotulo em caixa alta, sem sombra
+ * decorativa, sem gradiente fora dos dois lugares onde ele significa algo
+ * (o brilho do fundo e o botao da unica acao que existe).
  *
- * Camadas: celular (base), >=640px (a coluna vira cartao), >=980px (duas
- * colunas, e a entrada vira vitrine + formulario).
+ * Camadas: celular (base), >=640px (respiro), >=980px (duas colunas na
+ * entrada, extrato em colunas fixas).
  * ------------------------------------------------------------------------- */
 
 /* A fonte vem do proprio dominio. Numa tela de banco, um GET para o servidor
@@ -22,36 +24,35 @@
 }
 
 :root {
-  /* superficies */
-  --papel: #faf8fc;
-  --superficie: #ffffff;
-  --linha: #eee9f4;
-  --linha-forte: #e0d9ea;
+  /* fundo e superficies */
+  --fundo: #0c0812;
+  --superficie: #171023;
+  --superficie-2: #1e1630;
+  --linha: #241a35;
+  --linha-forte: #2f2345;
 
   /* tinta */
-  --tinta: #17111f;
-  --tinta-media: #574f63;
-  --tinta-fraca: #8b8398;
+  --tinta: #f4f1f8;
+  --tinta-media: #a79fb8;
+  /* 5,5:1 sobre o fundo. O tom que eu tinha escolhido primeiro (#6f6681)
+     ficava em 3,7:1 - abaixo do minimo de 4,5 - e e esta tinta que pinta
+     hora, rotulo e identificador, ou seja, quase todo texto pequeno. */
+  --tinta-fraca: #8b83a3;
 
   /* marca */
-  --roxo: #820ad1;
-  --roxo-escuro: #6a08ac;
-  --roxo-lavado: #f4e9fd;
-  --noite-1: #2b0b52;
-  --noite-2: #7a12c9;
+  --violeta: #a855f7;
+  --violeta-fundo: #7c3aed;
+  --noite: #1b0733;
 
   /* dinheiro: credito em verde, debito em tinta normal. Vermelho em todo
      debito transforma "voce gastou" em "algo deu errado". */
-  --credito: #0a8f5f;
-  --alerta: #c92a2a;
+  --credito: #34d399;
+  --alerta: #f87171;
 
   /* forma */
-  --raio-painel: 22px;
-  --raio-cartao: 16px;
+  --raio-grande: 20px;
+  --raio: 14px;
   --raio-item: 12px;
-  --sombra-painel: 0 20px 44px -24px rgba(43, 11, 82, .65);
-  --sombra-cartao: 0 1px 2px rgba(23, 17, 31, .04), 0 10px 30px -22px rgba(23, 17, 31, .22);
-  --sombra-flutuante: 0 24px 60px -24px rgba(23, 17, 31, .35);
 
   --respiro: 20px;
   --coluna: 460px;
@@ -64,7 +65,7 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--papel);
+  background: var(--fundo);
   color: var(--tinta);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -74,26 +75,35 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* O brilho fica FIXO atras de tudo, nao rola com a pagina: ele e a luz da
+   sala, nao um elemento do conteudo. `pointer-events: none` para nao roubar
+   clique de nada. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(62% 48% at 16% -4%, rgba(124, 58, 237, .34) 0%, rgba(12, 8, 18, 0) 62%),
+    radial-gradient(42% 38% at 96% 8%, rgba(168, 85, 247, .14) 0%, rgba(12, 8, 18, 0) 70%);
+}
+
+#root { position: relative; z-index: 1; }
+
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-
-h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.015em; }
-
-/* Paragrafo e lista sao posicionados pelo layout, nao pela margem que o
-   navegador da por padrao. O reset e no ELEMENTO de proposito: `.vitrine p`
-   venceria `.vitrine-linha` por especificidade e anularia, sem aviso, todo
-   espacamento definido por classe. */
 p, ul { margin: 0; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.015em; }
 
 /* Todo valor usa a mesma regra: algarismo de largura fixa, para a coluna de
    dinheiro nao dancar quando o numero muda. */
 .dinheiro { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
 
 :focus-visible {
-  outline: 2px solid var(--roxo);
+  outline: 2px solid var(--violeta);
   outline-offset: 2px;
   border-radius: 8px;
 }
-.painel :focus-visible, .vitrine :focus-visible { outline-color: #fff; }
 
 .app {
   min-height: 100%;
@@ -108,8 +118,8 @@ p, ul { margin: 0; }
   gap: 12px;
   padding: 14px var(--respiro);
   border-bottom: 1px solid var(--linha);
-  background: rgba(250, 248, 252, .86);
-  backdrop-filter: saturate(140%) blur(10px);
+  background: rgba(12, 8, 18, .72);
+  backdrop-filter: saturate(140%) blur(12px);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -120,7 +130,7 @@ p, ul { margin: 0; }
 .selo {
   width: 32px; height: 32px; flex: 0 0 32px;
   border-radius: 10px;
-  background: linear-gradient(140deg, var(--noite-2), var(--noite-1));
+  background: linear-gradient(140deg, var(--violeta), var(--violeta-fundo));
   color: #fff;
   display: grid; place-items: center;
   font-size: 16px; font-weight: 800;
@@ -133,23 +143,22 @@ p, ul { margin: 0; }
 .barra-nome { font-size: 13.5px; font-weight: 600; }
 .barra-numero { font-size: 11.5px; color: var(--tinta-fraca); }
 
-/* Ponto de conexao: o estado do SSE e informacao, nao enfeite - quem esta
-   olhando precisa saber se a notificacao ainda chega. */
+/* O estado do SSE e informacao, nao enfeite: quem esta olhando precisa saber
+   se a notificacao ainda chega. */
 .pulso {
   width: 8px; height: 8px; flex: 0 0 8px;
   border-radius: 50%;
   background: var(--credito);
-  box-shadow: 0 0 0 3px rgba(10, 143, 95, .16);
+  box-shadow: 0 0 10px rgba(52, 211, 153, .75);
 }
-.pulso.off { background: var(--tinta-fraca); box-shadow: 0 0 0 3px rgba(139, 131, 152, .16); }
+.pulso.off { background: var(--tinta-fraca); box-shadow: none; }
 
 .botao-fantasma {
-  padding: 8px 13px;
+  padding: 8px 14px;
   border-radius: 999px;
   font-size: 13.5px; font-weight: 600;
   color: var(--tinta-media);
   border: 1px solid var(--linha-forte);
-  background: var(--superficie);
   transition: border-color .15s ease, color .15s ease;
 }
 
@@ -159,130 +168,123 @@ p, ul { margin: 0; }
   width: 100%;
   max-width: var(--coluna);
   margin: 0 auto;
-  padding: 18px var(--respiro) 44px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  padding: 26px var(--respiro) 48px;
 }
 
-/* ---------- painel de saldo ---------- */
-.painel {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--raio-painel);
-  padding: 26px 24px 24px;
-  color: #fff;
-  background:
-    radial-gradient(120% 120% at 88% 0%, rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 55%),
-    linear-gradient(152deg, var(--noite-1) 0%, #4a0f8f 48%, var(--noite-2) 100%);
-  box-shadow: var(--sombra-painel);
+/* ---------- o saldo ---------- */
+.heroi {
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--linha);
 }
 
-.painel-topo {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 12px;
+.heroi-rotulo {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px;
+  color: var(--tinta-fraca);
+  font-weight: 500;
 }
-
-.painel-rotulo { font-size: 13px; color: rgba(255, 255, 255, .72); font-weight: 500; }
 
 .saldo {
-  font-size: 40px;
+  font-size: 46px;
   font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
-  margin-top: 4px;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  margin-top: 6px;
+  /* O degrade cai de branco para lilas: o numero recebe a mesma luz que o
+     fundo. `color` fica como reserva para quem nao suporta clip em texto. */
+  color: var(--tinta);
+  background: linear-gradient(176deg, #ffffff 26%, #c9b6e8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  width: fit-content;
 }
 
 .saldo-oculto {
   display: inline-block;
-  width: 168px; height: 30px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .22);
-  vertical-align: -3px;
+  width: 190px; height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .10);
 }
 
 .olho {
-  width: 36px; height: 36px; flex: 0 0 36px;
+  width: 30px; height: 30px; flex: 0 0 30px;
   border-radius: 50%;
   display: grid; place-items: center;
-  color: #fff;
-  background: rgba(255, 255, 255, .12);
-  font-size: 15px; line-height: 1;
-  transition: background .15s ease;
+  color: var(--tinta-media);
+  background: rgba(255, 255, 255, .06);
+  font-size: 13px; line-height: 1;
+  transition: background .15s ease, color .15s ease;
 }
 
-.painel-resumo {
-  display: flex;
-  gap: 32px;
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, .16);
-}
+.resumo { display: flex; gap: 34px; margin-top: 20px; }
+.resumo-rotulo { font-size: 12px; color: var(--tinta-fraca); }
+.resumo-valor { font-size: 16px; font-weight: 700; margin-top: 2px; }
+.resumo-valor.credito { color: var(--credito); }
 
-.resumo-rotulo { font-size: 12px; color: rgba(255, 255, 255, .66); }
-.resumo-valor { font-size: 15px; font-weight: 700; margin-top: 2px; }
-
-.painel-acao {
+.cta {
   display: block;
   width: 100%;
   margin-top: 24px;
-  padding: 15px;
+  padding: 15px 34px;
   border-radius: 999px;
-  background: #fff;
-  color: var(--noite-1);
+  color: #fff;
   font-size: 15px; font-weight: 700;
   letter-spacing: -0.01em;
-  transition: transform .14s ease, box-shadow .15s ease;
+  background: linear-gradient(140deg, var(--violeta), var(--violeta-fundo));
+  box-shadow: 0 16px 40px -16px rgba(168, 85, 247, .85);
+  transition: transform .14s ease, box-shadow .18s ease;
 }
-.painel-acao:active { transform: scale(.985); }
+.cta:active { transform: scale(.99); }
+.cta[disabled] { opacity: .5; cursor: default; box-shadow: none; }
 
 /* ---------- extrato ---------- */
 .extrato-topo {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
-  padding: 0 4px;
+  margin: 30px 0 2px;
 }
-.extrato-topo h2 { font-size: 17px; }
+.extrato-topo h2 { font-size: 16px; }
 .extrato-contagem { font-size: 12.5px; color: var(--tinta-fraca); }
-
-.razao {
-  background: var(--superficie);
-  border: 1px solid var(--linha);
-  border-radius: var(--raio-cartao);
-  box-shadow: var(--sombra-cartao);
-  overflow: hidden;
-}
 
 .dia-titulo {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--tinta-fraca);
-  padding: 11px 18px 9px;
-  background: var(--papel);
-  border-bottom: 1px solid var(--linha);
+  margin: 20px 0 6px;
+  padding-left: 2px;
 }
-.dia + .dia .dia-titulo { border-top: 1px solid var(--linha); }
 
+/* Sem cartao em volta: as linhas ficam direto sobre o fundo, e o que separa
+   uma da outra e o espaco, nao uma borda. Menos moldura, mais extrato. */
 .lancamento {
-  display: flex; align-items: center; gap: 13px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--linha);
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--raio);
 }
-.dia:last-child .lancamento:last-child { border-bottom: none; }
+.lancamento + .lancamento { margin-top: 2px; }
+
+/* A linha que acabou de chegar pelo SSE acende e apaga. E a unica animacao
+   nao pedida da tela, e existe porque RESPONDE a uma mudanca: sem ela,
+   dinheiro novo aparece na lista sem que ninguem perceba. */
+@keyframes acender {
+  from { background: rgba(168, 85, 247, .18); box-shadow: inset 0 0 0 1px rgba(168, 85, 247, .34); }
+  to { background: transparent; box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0); }
+}
+.lancamento.novo { animation: acender 2.4s ease-out; }
 
 .lancamento-icone {
-  width: 34px; height: 34px; flex: 0 0 34px;
+  width: 38px; height: 38px; flex: 0 0 38px;
   border-radius: 50%;
   display: grid; place-items: center;
   font-size: 14px; font-weight: 700;
-  background: rgba(23, 17, 31, .05);
+  background: rgba(255, 255, 255, .06);
   color: var(--tinta-media);
 }
 /* `credito`, e nao `entrada`: `.entrada` ja e o contenedor da tela de
-   entrar, e a regra `flex: 1` dele vinha esticando este circulo numa elipse.
-   Mesmo nome para duas coisas em CSS global nao da erro, da defeito. */
-.lancamento-icone.credito { background: rgba(10, 143, 95, .11); color: var(--credito); }
+   entrar, e a regra `flex: 1` dele esticava este circulo numa elipse. Mesmo
+   nome para duas coisas em CSS global nao da erro, da defeito. */
+.lancamento-icone.credito { background: rgba(52, 211, 153, .13); color: var(--credito); }
 
 .lancamento-corpo { flex: 1; min-width: 0; }
 .lancamento-titulo { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; }
@@ -293,27 +295,14 @@ p, ul { margin: 0; }
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11.5px;
   color: var(--tinta-fraca);
-  background: var(--papel);
-  border: 1px solid var(--linha);
-  border-radius: 6px;
-  padding: 3px 7px;
 }
 
 .lancamento-valor {
-  font-size: 15px; font-weight: 700;
+  font-size: 15.5px; font-weight: 700;
   white-space: nowrap;
   letter-spacing: -0.01em;
 }
 .lancamento-valor.credito { color: var(--credito); }
-
-/* A linha que acabou de chegar pelo SSE acende e apaga. E a unica animacao
-   nao pedida da tela, e existe porque ela RESPONDE a uma mudanca: sem ela,
-   dinheiro novo aparece na lista sem que ninguem perceba. */
-@keyframes acender {
-  from { background: var(--roxo-lavado); }
-  to { background: transparent; }
-}
-.lancamento.novo { animation: acender 2.2s ease-out; }
 
 .vazio {
   padding: 40px 24px;
@@ -321,31 +310,28 @@ p, ul { margin: 0; }
   color: var(--tinta-fraca);
   font-size: 14px;
   line-height: 1.6;
+  border: 1px dashed var(--linha-forte);
+  border-radius: var(--raio-grande);
+  margin-top: 14px;
 }
 .vazio strong { display: block; color: var(--tinta); font-size: 15px; margin-bottom: 4px; font-weight: 600; }
 
 /* ---------- entrar e cadastrar ---------- */
-.entrada {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
+.entrada { flex: 1; display: flex; flex-direction: column; }
 
 /* No celular a vitrine e um cabecalho curto; no desktop ela vira a metade
    esquerda da tela. O conteudo e o mesmo. */
 .vitrine {
   position: relative;
   overflow: hidden;
-  color: #fff;
-  padding: 24px var(--respiro) 26px;
+  padding: 24px var(--respiro) 28px;
   background:
-    radial-gradient(130% 110% at 85% 0%, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, 0) 58%),
-    linear-gradient(152deg, var(--noite-1) 0%, #4a0f8f 52%, var(--noite-2) 100%);
+    radial-gradient(120% 120% at 88% -10%, rgba(168, 85, 247, .38) 0%, rgba(27, 7, 51, 0) 58%),
+    linear-gradient(158deg, var(--noite) 0%, #2d0b56 58%, #140527 100%);
+  border-bottom: 1px solid var(--linha);
 }
 
 .vitrine-marca { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-.vitrine-marca .selo { background: rgba(255, 255, 255, .16); }
-.vitrine-marca .marca-nome { color: #fff; }
 
 .vitrine h1 {
   font-size: 24px;
@@ -357,8 +343,8 @@ p, ul { margin: 0; }
 .vitrine-linha {
   margin-top: 16px;
   font-size: 14px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, .78);
+  line-height: 1.55;
+  color: var(--tinta-media);
   max-width: 46ch;
 }
 
@@ -367,15 +353,15 @@ p, ul { margin: 0; }
 .vitrine-lista {
   display: none;
   list-style: none;
-  margin-top: 28px;
+  margin-top: 30px;
   padding: 0;
-  gap: 14px;
+  gap: 15px;
   max-width: 44ch;
 }
 .vitrine-lista li {
   font-size: 13.5px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, .82);
+  line-height: 1.55;
+  color: var(--tinta-media);
   padding-left: 20px;
   position: relative;
 }
@@ -385,11 +371,10 @@ p, ul { margin: 0; }
   left: 0; top: 8px;
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, .55);
+  background: var(--violeta);
+  box-shadow: 0 0 10px rgba(168, 85, 247, .9);
 }
 
-/* So onde ha altura sobrando: no celular a vitrine e um cabecalho curto e
-   esta linha empurraria o formulario para fora da tela. */
 .vitrine-rodape { display: none; }
 
 .entrada-corpo {
@@ -397,7 +382,7 @@ p, ul { margin: 0; }
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 26px var(--respiro) 44px;
+  padding: 28px var(--respiro) 44px;
 }
 
 .formulario { width: 100%; max-width: 400px; }
@@ -420,15 +405,15 @@ p, ul { margin: 0; }
   font-family: inherit;
   color: var(--tinta);
   background: var(--superficie);
-  border: 1.5px solid var(--linha-forte);
+  border: 1px solid var(--linha-forte);
   border-radius: var(--raio-item);
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .campo input::placeholder { color: var(--tinta-fraca); }
 .campo input:focus {
   outline: none;
-  border-color: var(--roxo);
-  box-shadow: 0 0 0 4px rgba(130, 10, 209, .12);
+  border-color: var(--violeta);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, .18);
 }
 .campo-nota { font-size: 12.5px; color: var(--tinta-fraca); margin: 6px 0 0; line-height: 1.45; }
 .campo-nota + .botao-primario { margin-top: 18px; }
@@ -437,14 +422,20 @@ p, ul { margin: 0; }
   width: 100%;
   padding: 14px;
   border-radius: 999px;
-  background: var(--roxo);
   color: #fff;
   font-size: 15px; font-weight: 700;
   letter-spacing: -0.01em;
-  transition: background .15s ease, transform .14s ease;
+  background: linear-gradient(140deg, var(--violeta), var(--violeta-fundo));
+  box-shadow: 0 14px 34px -16px rgba(168, 85, 247, .8);
+  transition: filter .15s ease, transform .14s ease;
 }
 .botao-primario:active:not([disabled]) { transform: scale(.99); }
-.botao-primario[disabled] { background: var(--linha-forte); color: var(--tinta-fraca); cursor: default; }
+.botao-primario[disabled] {
+  background: var(--superficie-2);
+  color: var(--tinta-fraca);
+  box-shadow: none;
+  cursor: default;
+}
 
 .botao-texto {
   width: 100%;
@@ -456,9 +447,9 @@ p, ul { margin: 0; }
 }
 
 .erro {
-  display: flex; gap: 9px;
-  background: rgba(201, 42, 42, .07);
-  color: #96201f;
+  background: rgba(248, 113, 113, .10);
+  border: 1px solid rgba(248, 113, 113, .24);
+  color: #fca5a5;
   padding: 11px 13px;
   border-radius: var(--raio-item);
   font-size: 13.5px;
@@ -488,8 +479,8 @@ p, ul { margin: 0; }
   width: 34px; height: 34px; flex: 0 0 34px;
   border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--roxo-lavado);
-  color: var(--roxo);
+  background: rgba(168, 85, 247, .16);
+  color: var(--violeta);
   font-size: 14px; font-weight: 700;
 }
 .visitante-nome { display: block; font-size: 14.5px; font-weight: 600; }
@@ -498,21 +489,21 @@ p, ul { margin: 0; }
 .nota {
   margin-top: 14px;
   padding: 13px 14px;
-  background: var(--roxo-lavado);
+  background: rgba(168, 85, 247, .08);
+  border: 1px solid rgba(168, 85, 247, .18);
   border-radius: var(--raio-item);
   font-size: 12.5px;
   line-height: 1.55;
-  color: #4a2a63;
+  color: var(--tinta-media);
 }
-.nota strong { font-weight: 700; }
-
+.nota strong { color: var(--tinta); font-weight: 700; }
 .nota p + p { margin-top: 7px; }
 
 /* ---------- transferir ---------- */
 .overlay {
   position: fixed; inset: 0;
-  background: rgba(23, 17, 31, .5);
-  backdrop-filter: blur(3px);
+  background: rgba(5, 3, 8, .72);
+  backdrop-filter: blur(4px);
   display: flex; align-items: flex-end;
   z-index: 40;
   animation: aparecer .18s ease;
@@ -524,7 +515,9 @@ p, ul { margin: 0; }
   max-width: var(--coluna);
   margin: 0 auto;
   background: var(--superficie);
-  border-radius: var(--raio-painel) var(--raio-painel) 0 0;
+  border: 1px solid var(--linha-forte);
+  border-bottom: none;
+  border-radius: var(--raio-grande) var(--raio-grande) 0 0;
   padding: 10px 20px calc(22px + env(safe-area-inset-bottom));
   max-height: 90vh;
   overflow-y: auto;
@@ -551,19 +544,19 @@ p, ul { margin: 0; }
 .chave {
   margin: 4px 0 18px;
   padding: 12px 13px;
-  background: var(--papel);
+  background: rgba(255, 255, 255, .03);
   border: 1px solid var(--linha);
   border-radius: var(--raio-item);
   font-size: 12.5px;
   line-height: 1.55;
-  color: var(--tinta-media);
+  color: var(--tinta-fraca);
 }
 .chave code {
   display: block;
   margin: 5px 0 6px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11.5px;
-  color: var(--tinta);
+  color: var(--violeta);
   overflow-wrap: anywhere;
 }
 
@@ -579,10 +572,10 @@ p, ul { margin: 0; }
   width: 100%; max-width: 400px;
   display: flex; align-items: center; gap: 12px;
   padding: 13px 16px;
-  border-radius: var(--raio-cartao);
-  background: var(--tinta);
-  color: #fff;
-  box-shadow: var(--sombra-flutuante);
+  border-radius: var(--raio);
+  background: var(--superficie-2);
+  border: 1px solid var(--linha-forte);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .9);
   animation: descer .28s cubic-bezier(.22, .8, .3, 1);
 }
 @keyframes descer {
@@ -594,11 +587,12 @@ p, ul { margin: 0; }
   width: 32px; height: 32px; flex: 0 0 32px;
   border-radius: 50%;
   display: grid; place-items: center;
-  background: rgba(255, 255, 255, .13);
+  background: rgba(168, 85, 247, .18);
+  color: var(--violeta);
   font-size: 14px; font-weight: 700;
 }
 .toast-titulo { font-size: 13.5px; font-weight: 700; }
-.toast-texto { font-size: 12.5px; color: rgba(255, 255, 255, .7); margin-top: 1px; }
+.toast-texto { font-size: 12.5px; color: var(--tinta-fraca); margin-top: 1px; }
 
 /* ---------- carregando ---------- */
 .carregando {
@@ -614,14 +608,15 @@ p, ul { margin: 0; }
  * preso no item tocado depois que o dedo sai.
  * ------------------------------------------------------------------------- */
 @media (hover: hover) {
-  .botao-primario:hover:not([disabled]) { background: var(--roxo-escuro); }
-  .botao-texto:hover { color: var(--tinta); background: rgba(23, 17, 31, .04); }
+  .cta:hover { box-shadow: 0 20px 46px -14px rgba(168, 85, 247, .95); }
+  .botao-primario:hover:not([disabled]) { filter: brightness(1.08); }
+  .botao-texto:hover { color: var(--tinta); background: rgba(255, 255, 255, .04); }
   .botao-fantasma:hover { border-color: var(--tinta-fraca); color: var(--tinta); }
-  .painel-acao:hover { box-shadow: 0 10px 26px -12px rgba(0, 0, 0, .45); }
-  .olho:hover { background: rgba(255, 255, 255, .22); }
+  .olho:hover { background: rgba(255, 255, 255, .12); color: var(--tinta); }
+  .lancamento:hover { background: rgba(255, 255, 255, .03); }
   .visitante:hover:not([disabled]) {
-    border-color: var(--roxo);
-    box-shadow: 0 10px 24px -18px rgba(130, 10, 209, .8);
+    border-color: var(--violeta);
+    box-shadow: 0 12px 30px -20px rgba(168, 85, 247, .9);
     transform: translateY(-1px);
   }
 }
@@ -636,21 +631,22 @@ p, ul { margin: 0; }
 }
 
 /* ---------------------------------------------------------------------------
- * >= 640px: a coluna deixa de encostar nas bordas.
+ * >= 640px
  * ------------------------------------------------------------------------- */
 @media (min-width: 640px) {
-  .conteudo { padding-top: 24px; }
   .barra { padding-left: 28px; padding-right: 28px; }
+  .conteudo { padding-top: 32px; }
 
-  .vitrine { padding: 34px 28px 36px; }
+  .vitrine { padding: 32px 28px 34px; }
   .vitrine h1 { font-size: 30px; }
-  .entrada-corpo { padding-top: 32px; }
+  .entrada-corpo { padding-top: 34px; }
 
   .overlay { align-items: center; padding: 24px; }
   .caixa {
     max-width: 430px;
-    border-radius: var(--raio-painel);
-    padding: 24px 24px 24px;
+    border: 1px solid var(--linha-forte);
+    border-radius: var(--raio-grande);
+    padding: 24px;
     max-height: 88vh;
     animation: surgir .22s cubic-bezier(.22, .8, .3, 1);
   }
@@ -658,50 +654,46 @@ p, ul { margin: 0; }
 }
 
 /* ---------------------------------------------------------------------------
- * >= 980px: duas colunas.
- *
- * A ordem no DOM continua a do celular; quem reposiciona e o grid. A ordem de
- * leitura e a do Tab nao mudam com a largura da janela.
+ * >= 980px
  * ------------------------------------------------------------------------- */
 @media (min-width: 980px) {
-  .barra { padding: 16px 40px; }
+  .barra { padding: 16px 44px; }
   .marca-nome { font-size: 17px; }
 
   .conteudo {
     max-width: var(--largura);
-    padding: 36px 40px 64px;
-    display: grid;
-    grid-template-columns: minmax(320px, 396px) 1fr;
-    gap: 32px;
-    align-items: start;
+    padding: 52px 44px 64px;
   }
 
-  .painel {
-    padding: 30px 28px 28px;
-    /* O saldo acompanha a rolagem do extrato: numa conta com muitos
-       lancamentos, saber quanto sobrou e o contexto de tudo que se le. */
-    position: sticky;
-    top: 96px;
+  /* O saldo de um lado, a acao do outro, na mesma linha de base: a tela
+     inteira cabe em um olhar, sem cartao em volta de nada. */
+  .heroi {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 40px;
+    padding-bottom: 38px;
   }
-  .saldo { font-size: 48px; }
-  .painel-rotulo { font-size: 13.5px; }
-  .resumo-valor { font-size: 16px; }
+  .heroi-rotulo { font-size: 13px; }
+  .saldo { font-size: 72px; margin-top: 10px; }
+  .saldo-oculto { width: 300px; height: 54px; }
+  .resumo { gap: 38px; margin-top: 22px; }
+  .cta { width: auto; margin-top: 0; }
 
-  .extrato { min-width: 0; }
-  .lancamento-id { display: block; }
+  .extrato-topo { margin-top: 36px; }
+  .dia-titulo { margin: 24px 0 8px; }
 
-  /* Com largura sobrando a linha vira tabela de verdade: icone, descricao,
+  /* Com largura sobrando a linha vira tabela: icone, descricao,
      identificador e valor em colunas fixas, alinhados linha a linha. */
   .lancamento {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 86px 140px;
+    grid-template-columns: 38px minmax(0, 1fr) 100px 150px;
     align-items: center;
-    gap: 14px;
-    padding: 15px 22px;
+    gap: 16px;
+    padding: 16px 18px;
   }
+  .lancamento-id { display: block; }
   .lancamento-valor { text-align: right; }
-  .dia-titulo { padding-left: 22px; padding-right: 22px; }
-  .extrato-topo { padding: 0 2px; margin-bottom: 12px; }
 
   /* A entrada vira vitrine a esquerda e formulario a direita: a primeira
      tela do app e tambem a unica chance de dizer o que ele demonstra. */
@@ -715,6 +707,8 @@ p, ul { margin: 0; }
     display: flex;
     flex-direction: column;
     justify-content: center;
+    border-bottom: none;
+    border-right: 1px solid var(--linha);
   }
   .vitrine h1 { font-size: 40px; line-height: 1.1; max-width: 13ch; }
   .vitrine-linha { font-size: 15.5px; margin-top: 24px; }
@@ -723,24 +717,21 @@ p, ul { margin: 0; }
     display: block;
     margin-top: 44px;
     font-size: 13px;
-    color: rgba(255, 255, 255, .58);
+    color: var(--tinta-fraca);
   }
   .vitrine-rodape a {
-    color: rgba(255, 255, 255, .92);
+    color: var(--tinta-media);
     text-decoration: underline;
     text-underline-offset: 3px;
     text-decoration-thickness: 1px;
   }
 
-  .entrada-corpo {
-    align-items: center;
-    padding: 48px;
-    background: var(--papel);
-  }
+  .entrada-corpo { align-items: center; padding: 48px; }
   .formulario { max-width: 380px; }
 }
 
 @media (min-width: 1240px) {
   .vitrine { padding: 64px 72px; }
   .vitrine h1 { font-size: 46px; }
+  .saldo { font-size: 78px; }
 }

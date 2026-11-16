@@ -8,10 +8,11 @@ provam, como dinheiro se move entre contas sem se perder, duplicar ou travar.
 das duas contas de demonstração e transfira para a outra. A notificação que aparece no topo
 chega por SSE, não por polling: o backend empurra o evento quando a transferência fecha.
 
-O mesmo app atende celular e desktop: até 980px é a coluna única do PWA; acima disso o
-saldo fica de um lado, acompanhando a rolagem, e o extrato do outro — com o identificador
-da transferência em cada linha, que é o que liga o extrato ao log do servidor. A folha de
-transferência deixa de ser um gesto de celular e vira uma caixa no meio da tela.
+A interface é escura por uma razão de leitura, não de moda: o saldo é a única coisa que
+precisa gritar, e sobre quase preto ele grita sozinho, sem precisar de cartão, borda ou
+sombra em volta. O mesmo app atende celular e desktop — acima de 980px o saldo e a ação
+dividem a mesma linha de base e o extrato ganha colunas fixas, com o identificador da
+transferência em cada linha, que é o que liga o extrato ao log do servidor.
 
 Há cadastro e login — e **duas senhas**: a de acesso prova quem você é, a transacional
 autoriza mover dinheiro. Autenticar não é autorizar. Para ver sem se cadastrar, entre como
@@ -20,7 +21,7 @@ a cada hora, por lançamento compensatório, nunca apagando o razão.
 
 <p align="center">
   <img src="docs/demo.png"
-       alt="Tela da conta: saldo de R$ 912,50, o quanto entrou e saiu, e o extrato agrupado por dia"
+       alt="Tela da conta no tema escuro: saldo de R$ 507,50 em destaque, o quanto entrou e saiu, e o extrato agrupado por dia"
        width="340">
 </p>
 

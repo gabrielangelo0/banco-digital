@@ -213,9 +213,7 @@ export default function App() {
           </div>
 
           {erro ? (
-            <div className="razao">
-              <p className="vazio">{erro}</p>
-            </div>
+            <p className="vazio">{erro}</p>
           ) : (
             <Razao lancamentos={lancamentos} novos={novos} />
           )}

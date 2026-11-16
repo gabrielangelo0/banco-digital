@@ -69,36 +69,40 @@ export function PainelSaldo({
   const saldo = useSaldoAnimado(Number(conta?.balance ?? 0))
 
   return (
-    <section className="painel" aria-label="Saldo da conta">
-      <div className="painel-topo">
-        <div>
-          <p className="painel-rotulo">Saldo disponível</p>
-          <p className="saldo dinheiro">
-            {visivel ? formatarDinheiro(saldo) : <span className="saldo-oculto" />}
-          </p>
-        </div>
+    <section className="heroi" aria-label="Saldo da conta">
+      <div>
+        <p className="heroi-rotulo">
+          Saldo disponível
+          <button
+            className="olho"
+            onClick={aoAlternar}
+            aria-label={visivel ? 'Ocultar saldo' : 'Mostrar saldo'}
+          >
+            {visivel ? '◉' : '◎'}
+          </button>
+        </p>
 
-        <button
-          className="olho"
-          onClick={aoAlternar}
-          aria-label={visivel ? 'Ocultar saldo' : 'Mostrar saldo'}
-        >
-          {visivel ? '◉' : '◎'}
-        </button>
+        <p className="saldo dinheiro">
+          {visivel ? formatarDinheiro(saldo) : <span className="saldo-oculto" />}
+        </p>
+
+        <div className="resumo">
+          <div>
+            <p className="resumo-rotulo">Entrou</p>
+            <p className="resumo-valor credito dinheiro">
+              {visivel ? formatarDinheiro(entradas) : '•••'}
+            </p>
+          </div>
+          <div>
+            <p className="resumo-rotulo">Saiu</p>
+            <p className="resumo-valor dinheiro">
+              {visivel ? formatarDinheiro(saidas) : '•••'}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="painel-resumo">
-        <div>
-          <p className="resumo-rotulo">Entrou</p>
-          <p className="resumo-valor dinheiro">{visivel ? formatarDinheiro(entradas) : '•••'}</p>
-        </div>
-        <div>
-          <p className="resumo-rotulo">Saiu</p>
-          <p className="resumo-valor dinheiro">{visivel ? formatarDinheiro(saidas) : '•••'}</p>
-        </div>
-      </div>
-
-      <button className="painel-acao" onClick={aoTransferir} disabled={!conta}>
+      <button className="cta" onClick={aoTransferir} disabled={!conta}>
         Transferir
       </button>
     </section>

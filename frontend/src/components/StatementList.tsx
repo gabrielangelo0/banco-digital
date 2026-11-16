@@ -25,18 +25,16 @@ function porDia(lancamentos: Entry[]): Dia[] {
 export function Razao({ lancamentos, novos }: { lancamentos: Entry[]; novos: Set<number> }) {
   if (lancamentos.length === 0) {
     return (
-      <div className="razao">
-        <p className="vazio">
-          <strong>Nada se moveu ainda.</strong>
-          Transfira para a outra conta de demonstração e o lançamento aparece aqui no
-          mesmo instante.
-        </p>
-      </div>
+      <p className="vazio">
+        <strong>Nada se moveu ainda.</strong>
+        Transfira para a outra conta de demonstração e o lançamento aparece aqui no
+        mesmo instante.
+      </p>
     )
   }
 
   return (
-    <div className="razao">
+    <div>
       {porDia(lancamentos).map((dia) => (
         <div className="dia" key={dia.rotulo}>
           <h3 className="dia-titulo">{dia.rotulo}</h3>
