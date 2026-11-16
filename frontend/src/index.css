@@ -1,3 +1,15 @@
+/* ---------------------------------------------------------------------------
+ * Folha unica, organizada em tres camadas:
+ *
+ *   1. base       - celular, coluna de 480px (o layout original)
+ *   2. >= 600px   - a coluna vira cartao sobre o fundo, para tablet
+ *   3. >= 900px   - duas colunas: saldo/acoes de um lado, extrato do outro
+ *
+ * Mobile-first de proposito: o app e um PWA, e a maioria das visitas vem do
+ * celular. O desktop ganha o espaco horizontal em cima dessa base, nunca o
+ * contrario - assim nenhuma regra de celular depende de um `max-width`.
+ * ------------------------------------------------------------------------- */
+
 :root {
   --roxo: #820ad1;
   --roxo-escuro: #6a08ac;
@@ -11,6 +23,12 @@
   --vermelho: #e53935;
   --raio: 16px;
   --sombra: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  /* Respiro lateral em UM lugar: todo bloco interno usa esta medida, entao
+     mudar o respiro do tablet nao exige reescrever margem por margem. */
+  --respiro: 20px;
+  --coluna: 480px;
+  --painel: 1040px;
 }
 
 * { box-sizing: border-box; }
@@ -27,8 +45,18 @@ body {
 
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
 
+/* Navegar com teclado e a forma normal de usar a web, e o contorno padrao do
+   navegador desaparece atras do fundo roxo. `:focus-visible` nao aparece para
+   quem clica com o mouse, so para quem chegou pelo Tab. */
+:focus-visible {
+  outline: 2px solid var(--roxo);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.topo :focus-visible { outline-color: #fff; }
+
 .app {
-  max-width: 480px;
+  max-width: var(--coluna);
   margin: 0 auto;
   min-height: 100%;
   background: var(--fundo);
@@ -39,7 +67,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .topo {
   background: var(--roxo);
   color: #fff;
-  padding: 28px 20px 24px;
+  padding: 28px var(--respiro) 24px;
   border-radius: 0 0 20px 20px;
 }
 
@@ -87,7 +115,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .acoes {
   display: flex; gap: 10px;
   overflow-x: auto;
-  padding: 18px 20px;
+  padding: 18px var(--respiro);
   scrollbar-width: none;
 }
 .acoes::-webkit-scrollbar { display: none; }
@@ -101,7 +129,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   border-radius: var(--raio);
   box-shadow: var(--sombra);
   font-size: 12px; color: var(--texto);
-  transition: transform .12s ease;
+  transition: transform .12s ease, box-shadow .15s ease;
 }
 .acao:active { transform: scale(0.96); }
 .acao[disabled] { opacity: .45; cursor: default; }
@@ -109,7 +137,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ---------- blocos ---------- */
 .bloco {
-  margin: 8px 20px 0;
+  margin: 8px var(--respiro) 0;
   background: var(--cartao);
   border-radius: var(--raio);
   box-shadow: var(--sombra);
@@ -119,7 +147,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .bloco-titulo {
   font-size: 13px; font-weight: 600; color: var(--texto-fraco);
   text-transform: uppercase; letter-spacing: .4px;
-  margin: 26px 20px 10px;
+  margin: 26px var(--respiro) 10px;
 }
 
 /* ---------- extrato ---------- */
@@ -138,6 +166,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .seta.entrada { background: rgba(29, 185, 84, .12); color: var(--verde); }
 .seta.saida { background: rgba(229, 57, 53, .10); color: var(--vermelho); }
+/* Entrar como visitante nao e entrada nem saida de dinheiro: a cor da marca
+   evita que o cartao de uma conta de demonstracao pareca um credito. */
+.seta.visitante { background: rgba(130, 10, 209, .10); color: var(--roxo); }
 
 .lancamento-info { flex: 1; min-width: 0; }
 .lancamento-titulo { font-size: 14.5px; font-weight: 500; }
@@ -155,32 +186,57 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   color: var(--texto-fraco); font-size: 14px;
 }
 
-/* ---------- bottom sheet ---------- */
-.overlay {
-  position: fixed; inset: 0;
-  background: rgba(0, 0, 0, .45);
-  display: flex; align-items: flex-end;
-  z-index: 40;
-  animation: aparecer .18s ease;
-}
-@keyframes aparecer { from { opacity: 0 } to { opacity: 1 } }
-
-.sheet {
-  width: 100%; max-width: 480px; margin: 0 auto;
-  background: var(--cartao);
-  border-radius: 20px 20px 0 0;
-  padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
-  animation: subir .24s cubic-bezier(.22,.8,.3,1);
-  max-height: 88vh; overflow-y: auto;
-}
-@keyframes subir { from { transform: translateY(100%) } to { transform: translateY(0) } }
-
-.puxador {
-  width: 38px; height: 4px; border-radius: 2px;
-  background: #dcdce2; margin: 4px auto 18px;
+/* Botao que ocupa a linha inteira do extrato (entrar como visitante). O
+   `.lancamento` foi desenhado como <div>; como <button> ele precisa perder os
+   padroes de botao para nao ficar centralizado e estreito. */
+.lancamento-botao {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
 }
 
-.sheet h2 { font-size: 19px; margin: 0 0 20px; }
+/* ---------- entrar e cadastrar ---------- */
+/* Formulario centralizado na vertical: no celular ele comeca no alto, e numa
+   tela de desktop fica no meio em vez de pendurado no topo. */
+.tela-auth {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px 0 40px;
+}
+
+.auth-caixa {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  /* O respiro lateral que o `.app` nunca teve: sem isto os campos encostam
+     na borda da tela no celular. */
+  padding: 0 var(--respiro);
+}
+
+.marca {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 26px;
+}
+.marca-selo {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  border-radius: 11px;
+  background: var(--roxo);
+  color: #fff;
+  display: grid; place-items: center;
+  font-size: 19px; font-weight: 700;
+}
+.marca-nome { font-size: 17px; font-weight: 600; }
+.marca-linha { font-size: 12.5px; color: var(--texto-fraco); margin-top: 1px; }
+
+.auth-caixa h2 { font-size: 22px; margin: 0 0 20px; }
+
+/* Dentro do formulario os blocos nao tem margem propria: o respiro ja vem da
+   caixa. Sem isto, o cartao de visitante ficaria desalinhado dos campos. */
+.auth-caixa .bloco { margin: 0; }
+.auth-caixa .bloco-titulo { margin: 26px 0 10px; }
 
 .campo { margin-bottom: 18px; }
 .campo label {
@@ -191,6 +247,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .campo input, .campo select {
   width: 100%;
   padding: 13px 14px;
+  /* 16px nao e estetica: abaixo disso o Safari do iOS da zoom no campo ao
+     focar, e a pagina fica deslocada depois. */
   font-size: 16px;
   border: 1.5px solid var(--borda);
   border-radius: 12px;
@@ -211,12 +269,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   border-radius: 999px;
   transition: background .15s ease;
 }
-.botao-primario:hover:not([disabled]) { background: var(--roxo-escuro); }
 .botao-primario[disabled] { opacity: .5; cursor: default; }
 
 .botao-texto {
   width: 100%; padding: 13px; margin-top: 8px;
   color: var(--texto-fraco); font-size: 14px;
+  border-radius: 999px;
 }
 
 .erro {
@@ -236,8 +294,42 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   padding: 10px 12px;
   margin-bottom: 16px;
   line-height: 1.5;
-  word-break: break-all;
+  /* `break-all` quebrava PALAVRA no meio ("dinhei/ro") porque o bloco tambem
+     exibe a Idempotency-Key, que nao cabe inteira. `anywhere` so quebra
+     quando a palavra nao cabe de jeito nenhum: a chave quebra, o texto nao. */
+  overflow-wrap: anywhere;
 }
+
+/* ---------- transferir: folha no celular, caixa no desktop ---------- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, .45);
+  display: flex; align-items: flex-end;
+  z-index: 40;
+  animation: aparecer .18s ease;
+}
+@keyframes aparecer { from { opacity: 0 } to { opacity: 1 } }
+
+.sheet {
+  width: 100%; max-width: var(--coluna); margin: 0 auto;
+  background: var(--cartao);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
+  animation: subir .24s cubic-bezier(.22,.8,.3,1);
+  max-height: 88vh; overflow-y: auto;
+}
+@keyframes subir { from { transform: translateY(100%) } to { transform: translateY(0) } }
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(10px) scale(.985) }
+  to { opacity: 1; transform: none }
+}
+
+.puxador {
+  width: 38px; height: 4px; border-radius: 2px;
+  background: #dcdce2; margin: 4px auto 18px;
+}
+
+.sheet h2 { font-size: 19px; margin: 0 0 20px; }
 
 /* ---------- toast ---------- */
 .toasts {
@@ -273,3 +365,114 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   margin-left: 7px; vertical-align: middle;
 }
 .conectado.off { background: rgba(255,255,255,.4); }
+
+/* ---------------------------------------------------------------------------
+ * Ponteiro com hover: mouse, nao dedo.
+ *
+ * Num celular o navegador emula :hover depois do toque e o estado FICA preso
+ * no item tocado. `@media (hover: hover)` so vale onde existe um ponteiro de
+ * verdade, entao o feedback de mouse nao vaza para o toque.
+ * ------------------------------------------------------------------------- */
+@media (hover: hover) {
+  .botao-primario:hover:not([disabled]) { background: var(--roxo-escuro); }
+  .botao-texto:hover { color: var(--texto); background: rgba(0, 0, 0, .035); }
+  .acao:not([disabled]):hover {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .10);
+    transform: translateY(-1px);
+  }
+  .lancamento-botao:hover:not([disabled]) { background: rgba(130, 10, 209, .04); }
+  .icone-olho:hover { opacity: 1; }
+}
+
+/* ---------------------------------------------------------------------------
+ * >= 600px: a coluna deixa de encostar nas bordas e vira cartao.
+ * ------------------------------------------------------------------------- */
+@media (min-width: 600px) {
+  .app { padding-top: 24px; padding-bottom: 40px; }
+
+  .topo {
+    margin: 0 var(--respiro);
+    border-radius: var(--raio);
+  }
+
+  .tela-auth { padding: 40px 0 48px; }
+}
+
+/* ---------------------------------------------------------------------------
+ * >= 900px: duas colunas.
+ *
+ * A ordem no DOM continua a do celular (saldo, acoes, extrato, sair) e quem
+ * decide a posicao e o grid, por area nomeada. Assim o desktop reposiciona
+ * sem trocar a ordem de leitura nem a ordem do Tab.
+ * ------------------------------------------------------------------------- */
+@media (min-width: 900px) {
+  .app {
+    max-width: var(--painel);
+    padding: 32px 32px 48px;
+  }
+
+  .painel {
+    display: grid;
+    grid-template-columns: minmax(290px, 340px) 1fr;
+    grid-template-areas:
+      "saldo  extrato"
+      "acoes  extrato"
+      "sair   extrato";
+    grid-template-rows: auto auto 1fr;
+    gap: 16px 28px;
+    align-items: start;
+  }
+
+  .topo {
+    grid-area: saldo;
+    margin: 0;
+    border-radius: var(--raio);
+    padding: 26px 24px 28px;
+  }
+
+  /* No celular as acoes rolam na horizontal porque nao cabem. Aqui cabem:
+     rolagem lateral com mouse e um jeito ruim de esconder botao. */
+  .acoes {
+    grid-area: acoes;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 0;
+    overflow: visible;
+  }
+  .acao { min-width: 0; padding: 18px 10px; }
+
+  .extrato { grid-area: extrato; min-width: 0; }
+  .extrato .bloco-titulo { margin: 0 0 12px; }
+  .extrato .bloco { margin: 0; }
+
+  .sair { grid-area: sair; margin: 0; }
+
+  /* O extrato tem mais largura do que precisa: o respiro cresce com ela, em
+     vez de deixar a linha esticada de ponta a ponta. */
+  .extrato .lancamento { padding: 16px 22px; }
+
+  /* Transferir deixa de ser folha do rodape e passa a ser caixa no meio: numa
+     tela larga, um painel colado embaixo e um gesto de celular sem celular. */
+  .overlay { align-items: center; padding: 24px; }
+  .sheet {
+    max-width: 440px;
+    border-radius: 20px;
+    padding: 24px 24px 26px;
+    max-height: 86vh;
+    animation: surgir .2s cubic-bezier(.22,.8,.3,1);
+  }
+  .puxador { display: none; }
+
+  .tela-auth { padding: 56px 0 64px; }
+  /* O formulario ganha fundo proprio: no celular ele esta sobre a tela toda,
+     numa tela larga precisa de uma borda para nao flutuar no cinza. */
+  .auth-caixa {
+    background: var(--cartao);
+    border-radius: 20px;
+    box-shadow: var(--sombra);
+    padding: 30px 28px 28px;
+    max-width: 440px;
+  }
+  .auth-caixa .dica-chave { margin-bottom: 0; }
+}

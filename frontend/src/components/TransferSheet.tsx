@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Account } from '../api/client'
 import { ErroDaApi, postTransfer } from '../api/client'
 import { formatarDinheiro } from './formato'
@@ -30,6 +30,16 @@ export function TransferSheet({
    * devolve a resposta original em vez de transferir duas vezes.
    */
   const idempotencyKey = useMemo(() => crypto.randomUUID(), [destino, valor])
+
+  // Esc fecha. No celular existe o gesto e o toque fora; no teclado, sem isto
+  // a unica saida e achar o botao Cancelar com o Tab.
+  useEffect(() => {
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key === 'Escape') aoFechar()
+    }
+    window.addEventListener('keydown', aoTeclar)
+    return () => window.removeEventListener('keydown', aoTeclar)
+  }, [aoFechar])
 
   const destinoValido = /^\d+$/.test(destino.trim())
   const valorValido =
@@ -71,13 +81,25 @@ export function TransferSheet({
 
   return (
     <div className="overlay" onClick={aoFechar}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-transferir"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="puxador" />
-        <h2>Transferir</h2>
+        <h2 id="titulo-transferir">Transferir</h2>
         <p className="lancamento-data">Da sua conta {origem.id}</p>
 
         {erroGeral && <div className="erro">{erroGeral}</div>}
 
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            void enviar()
+          }}
+        >
         <div className="campo">
           <label htmlFor="destino">Número da conta de destino</label>
           <input
@@ -125,13 +147,14 @@ export function TransferSheet({
           devolve a resposta original em vez de transferir duas vezes.
         </div>
 
-        <button className="botao-primario" onClick={enviar} disabled={!podeEnviar}>
+        <button className="botao-primario" type="submit" disabled={!podeEnviar}>
           {enviando
             ? 'Transferindo...'
             : valorValido
               ? `Transferir ${formatarDinheiro(valor.replace(',', '.'))}`
               : 'Transferir'}
         </button>
+        </form>
         <button className="botao-texto" onClick={aoFechar}>
           Cancelar
         </button>

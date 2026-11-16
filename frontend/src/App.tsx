@@ -75,27 +75,37 @@ export default function App() {
   }
 
   if (estado === 'carregando') {
-    return <div className="app"><p className="vazio">Carregando…</p></div>
+    return (
+      <div className="app">
+        <div className="tela-auth">
+          <div className="auth-caixa">
+            <p className="vazio">Carregando…</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (estado === 'erro') {
     return (
       <div className="app">
-        <div className="bloco">
-          {/* A mensagem da API ("Falha 500") nao diz nada a quem esta
-              olhando. A frase vem primeiro; o detalhe tecnico fica embaixo,
-              para quem souber o que fazer com ele. */}
-          <p className="vazio">Não foi possível falar com o servidor.</p>
-          {erro && <p className="vazio">{erro}</p>}
-          <button
-            className="botao-texto"
-            onClick={() => {
-              setEstado('carregando')
-              void carregar()
-            }}
-          >
-            Tentar de novo
-          </button>
+        <div className="tela-auth">
+          <div className="auth-caixa">
+            {/* A mensagem da API ("Falha 500") nao diz nada a quem esta
+                olhando. A frase vem primeiro; o detalhe tecnico fica embaixo,
+                para quem souber o que fazer com ele. */}
+            <p className="vazio">Não foi possível falar com o servidor.</p>
+            {erro && <p className="vazio">{erro}</p>}
+            <button
+              className="botao-texto"
+              onClick={() => {
+                setEstado('carregando')
+                void carregar()
+              }}
+            >
+              Tentar de novo
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -123,33 +133,45 @@ export default function App() {
     <div className="app">
       <Toasts notificacoes={notificacoes} aoDescartar={descartar} />
 
-      <BalanceCard
-        conta={conta}
-        visivel={saldoVisivel}
-        aoAlternar={() => setSaldoVisivel((v) => !v)}
-        conectado={conectado}
-      />
+      {/* A ordem aqui e a do celular: saldo, acoes, extrato, sair. Numa tela
+          larga o `.painel` vira grid de duas colunas e reposiciona por area
+          nomeada, sem mexer nesta ordem - que e tambem a ordem do Tab e a que
+          um leitor de tela anuncia. */}
+      <div className="painel">
+        <BalanceCard
+          conta={conta}
+          visivel={saldoVisivel}
+          aoAlternar={() => setSaldoVisivel((v) => !v)}
+          conectado={conectado}
+        />
 
-      <div className="acoes">
-        {ACOES.map((a) => (
-          <button
-            key={a.nome}
-            className="acao"
-            disabled={!a.ativa}
-            onClick={() => a.ativa && setSheetAberto(true)}
-          >
-            <span className="acao-icone">{a.icone}</span>
-            {a.nome}
-          </button>
-        ))}
+        <div className="acoes">
+          {ACOES.map((a) => (
+            <button
+              key={a.nome}
+              className="acao"
+              disabled={!a.ativa}
+              onClick={() => a.ativa && setSheetAberto(true)}
+            >
+              <span className="acao-icone">{a.icone}</span>
+              {a.nome}
+            </button>
+          ))}
+        </div>
+
+        <section className="extrato">
+          <p className="bloco-titulo">Transações</p>
+          {erro ? (
+            <div className="bloco"><p className="vazio">{erro}</p></div>
+          ) : (
+            <StatementList lancamentos={lancamentos} />
+          )}
+        </section>
+
+        <button className="botao-texto sair" onClick={() => void encerrarSessao()}>
+          Sair
+        </button>
       </div>
-
-      <p className="bloco-titulo">Transações</p>
-      {erro ? <div className="bloco"><p className="vazio">{erro}</p></div> : <StatementList lancamentos={lancamentos} />}
-
-      <button className="botao-texto" onClick={() => void encerrarSessao()}>
-        Sair
-      </button>
 
       {sheetAberto && conta && (
         <TransferSheet
