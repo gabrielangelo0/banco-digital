@@ -30,6 +30,15 @@ public class ApiExceptionHandler {
                 .body(new ApiError("TRANSFERENCIA_INVALIDA", e.getMessage()));
     }
 
+    @ExceptionHandler(CadastroInvalidoException.class)
+    public ResponseEntity<ApiError> cadastroInvalido(CadastroInvalidoException e) {
+        // 409, e a mensagem nao diz QUAL regra falhou: distinguir "e-mail ja
+        // existe" de "senha fraca" entrega ao atacante um verificador de
+        // cadastro.
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError("CADASTRO_INVALIDO", e.getMessage()));
+    }
+
     @ExceptionHandler(SaldoInsuficienteException.class)
     public ResponseEntity<ApiError> saldoInsuficiente(SaldoInsuficienteException e) {
         // 422: a requisicao esta bem formada, mas a regra de negocio recusa.
