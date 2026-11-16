@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Account, Entry } from './api/client'
-import { fetchAccounts, fetchStatement } from './api/client'
+import { ErroDaApi, fetchAccounts, fetchStatement } from './api/client'
+import { sair } from './api/auth'
 import { BalanceCard } from './components/BalanceCard'
 import { StatementList } from './components/StatementList'
 import { TransferSheet } from './components/TransferSheet'
 import { Toasts } from './components/Toast'
 import { useNotifications } from './hooks/useNotifications'
+import { LoginScreen } from './screens/LoginScreen'
+import { RegisterScreen } from './screens/RegisterScreen'
 
 const ACOES = [
   { icone: '⚡', nome: 'Pix' },
@@ -14,28 +17,35 @@ const ACOES = [
   { icone: '＋', nome: 'Depositar' },
 ]
 
+type Estado = 'carregando' | 'deslogado' | 'cadastrando' | 'logado'
+
 export default function App() {
-  const [contas, setContas] = useState<Account[]>([])
-  const [contaAtualId, setContaAtualId] = useState<number | null>(null)
+  const [estado, setEstado] = useState<Estado>('carregando')
+  const [conta, setConta] = useState<Account | null>(null)
   const [lancamentos, setLancamentos] = useState<Entry[]>([])
   const [saldoVisivel, setSaldoVisivel] = useState(true)
   const [sheetAberto, setSheetAberto] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  const { notificacoes, conectado, descartar } = useNotifications(contaAtualId)
+  const { notificacoes, conectado, descartar } = useNotifications(estado === 'logado')
 
   const carregar = useCallback(async () => {
     try {
-      const todas = await fetchAccounts()
-      setContas(todas)
-      const atual = contaAtualId ?? todas[0]?.id ?? null
-      setContaAtualId(atual)
-      if (atual != null) setLancamentos(await fetchStatement(atual))
+      // Esta chamada e tambem o teste de sessao: 401 significa deslogado.
+      const minhas = await fetchAccounts()
+      const minha = minhas[0] ?? null
+      setConta(minha)
+      if (minha) setLancamentos(await fetchStatement(minha.id))
       setErro(null)
+      setEstado('logado')
     } catch (e) {
+      if (e instanceof ErroDaApi && e.code === 'SEM_SESSAO') {
+        setEstado((atual) => (atual === 'cadastrando' ? atual : 'deslogado'))
+        return
+      }
       setErro(e instanceof Error ? e.message : 'Falha ao carregar')
     }
-  }, [contaAtualId])
+  }, [])
 
   useEffect(() => {
     void carregar()
@@ -47,15 +57,44 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notificacoes.length])
 
-  const contaAtual = contas.find((c) => c.id === contaAtualId) ?? null
-  const destinos = contas.filter((c) => c.id !== contaAtualId)
+  async function encerrarSessao() {
+    try {
+      await sair()
+    } finally {
+      setConta(null)
+      setLancamentos([])
+      setEstado('deslogado')
+    }
+  }
+
+  if (estado === 'carregando') {
+    return <div className="app"><p className="vazio">Carregando…</p></div>
+  }
+
+  if (estado === 'deslogado') {
+    return (
+      <LoginScreen
+        aoEntrar={() => void carregar()}
+        aoIrParaCadastro={() => setEstado('cadastrando')}
+      />
+    )
+  }
+
+  if (estado === 'cadastrando') {
+    return (
+      <RegisterScreen
+        aoEntrar={() => void carregar()}
+        aoVoltar={() => setEstado('deslogado')}
+      />
+    )
+  }
 
   return (
     <div className="app">
       <Toasts notificacoes={notificacoes} aoDescartar={descartar} />
 
       <BalanceCard
-        conta={contaAtual}
+        conta={conta}
         visivel={saldoVisivel}
         aoAlternar={() => setSaldoVisivel((v) => !v)}
         conectado={conectado}
@@ -75,38 +114,16 @@ export default function App() {
         ))}
       </div>
 
-      {contas.length > 1 && (
-        <>
-          <p className="bloco-titulo">Trocar de conta (demo)</p>
-          <div className="bloco">
-            {contas.map((c) => (
-              <button
-                key={c.id}
-                className="lancamento"
-                style={{ width: '100%', textAlign: 'left' }}
-                onClick={() => setContaAtualId(c.id)}
-              >
-                <div className="seta entrada" style={{ background: 'rgba(130,10,209,.1)', color: 'var(--roxo)' }}>
-                  {c.holderName.charAt(0)}
-                </div>
-                <div className="lancamento-info">
-                  <div className="lancamento-titulo">{c.holderName}</div>
-                  <div className="lancamento-data">conta {c.id}</div>
-                </div>
-                {c.id === contaAtualId && <span style={{ color: 'var(--roxo)' }}>●</span>}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
       <p className="bloco-titulo">Transações</p>
       {erro ? <div className="bloco"><p className="vazio">{erro}</p></div> : <StatementList lancamentos={lancamentos} />}
 
-      {sheetAberto && contaAtual && (
+      <button className="botao-texto" onClick={() => void encerrarSessao()}>
+        Sair
+      </button>
+
+      {sheetAberto && conta && (
         <TransferSheet
-          origem={contaAtual}
-          destinos={destinos}
+          origem={conta}
           aoFechar={() => setSheetAberto(false)}
           aoConcluir={carregar}
         />

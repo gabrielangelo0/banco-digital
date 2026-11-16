@@ -14,15 +14,17 @@ export type Notificacao = {
  * SSE em vez de WebSocket: o fluxo e de mao unica e o EventSource do navegador
  * ja reconecta sozinho quando a conexao cai.
  */
-export function useNotifications(accountId: number | null) {
+export function useNotifications(ativo: boolean) {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([])
   const [conectado, setConectado] = useState(false)
   const contador = useRef(0)
 
   useEffect(() => {
-    if (accountId == null) return
+    if (!ativo) return
 
-    const fonte = new EventSource(`/api/notifications/stream?accountId=${accountId}`)
+    // Sem `accountId` na URL: a conta vem da sessao. Antes, trocar o numero
+    // aqui assinava o fluxo de qualquer conta.
+    const fonte = new EventSource('/api/notifications/stream')
 
     fonte.addEventListener('ready', () => setConectado(true))
     fonte.addEventListener('transfer', (evento) => {
@@ -36,7 +38,7 @@ export function useNotifications(accountId: number | null) {
     fonte.onerror = () => setConectado(false)
 
     return () => fonte.close()
-  }, [accountId])
+  }, [ativo])
 
   const descartar = (id: string) =>
     setNotificacoes((atuais) => atuais.filter((n) => n.id !== id))

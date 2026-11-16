@@ -9,7 +9,9 @@ export default defineConfig({
       // O backend fica noutra porta em desenvolvimento. O proxy evita CORS e
       // mantem o SSE na mesma origem do app.
       '/api': {
-        target: 'http://localhost:8080',
+        // Alvo configuravel: na maquina de quem desenvolve, 8080 pode estar
+        // ocupada por outro projeto e o backend sobe noutra porta.
+        target: process.env.API_URL ?? 'http://localhost:8080',
         changeOrigin: true,
       },
     },

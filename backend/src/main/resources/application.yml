@@ -22,8 +22,16 @@ spring:
   flyway:
     enabled: true
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      # Configuravel porque 6379 costuma estar ocupada por um Redis da maquina.
+      port: ${REDIS_PORT:6379}
+
 server:
-  port: 8080
+  # Configuravel para conviver com outros servicos na mesma maquina de
+  # desenvolvimento, onde 8080 costuma ja estar ocupada.
+  port: ${SERVER_PORT:8080}
 
 management:
   endpoints:
