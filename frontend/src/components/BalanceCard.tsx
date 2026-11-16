@@ -1,25 +1,85 @@
+import { useEffect, useRef, useState } from 'react'
 import type { Account } from '../api/client'
 import { formatarDinheiro } from './formato'
 
-export function BalanceCard({
+/**
+ * O saldo anda ate o valor novo em vez de trocar de uma vez.
+ *
+ * E a unica animacao nao pedida da tela, e existe porque RESPONDE a uma
+ * mudanca: quando a notificacao chega, o numero mudar sozinho sem transicao
+ * nao se distingue de um numero que sempre esteve ali.
+ *
+ * O quadro final recebe o valor do servidor, nao o resultado da interpolacao:
+ * o caminho e ponto flutuante, o destino nao.
+ */
+function useSaldoAnimado(alvo: number): number {
+  const [valor, setValor] = useState(alvo)
+  const anterior = useRef(alvo)
+
+  useEffect(() => {
+    const partida = anterior.current
+    anterior.current = alvo
+    if (partida === alvo) return
+
+    const menosMovimento =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (menosMovimento) {
+      setValor(alvo)
+      return
+    }
+
+    const inicio = performance.now()
+    const duracao = 650
+    let quadro = 0
+
+    const passo = (agora: number) => {
+      const t = Math.min(1, (agora - inicio) / duracao)
+      if (t >= 1) {
+        setValor(alvo)
+        return
+      }
+      const suave = 1 - Math.pow(1 - t, 3)
+      setValor(partida + (alvo - partida) * suave)
+      quadro = requestAnimationFrame(passo)
+    }
+
+    quadro = requestAnimationFrame(passo)
+    return () => cancelAnimationFrame(quadro)
+  }, [alvo])
+
+  return valor
+}
+
+export function PainelSaldo({
   conta,
   visivel,
   aoAlternar,
-  conectado,
+  entradas,
+  saidas,
+  aoTransferir,
 }: {
   conta: Account | null
   visivel: boolean
   aoAlternar: () => void
-  conectado: boolean
+  entradas: string
+  saidas: string
+  aoTransferir: () => void
 }) {
-  const inicial = conta?.holderName?.charAt(0).toUpperCase() ?? '?'
+  const saldo = useSaldoAnimado(Number(conta?.balance ?? 0))
 
   return (
-    <header className="topo">
-      <div className="topo-linha">
-        <div className="avatar">{inicial}</div>
+    <section className="painel" aria-label="Saldo da conta">
+      <div className="painel-topo">
+        <div>
+          <p className="painel-rotulo">Saldo disponível</p>
+          <p className="saldo dinheiro">
+            {visivel ? formatarDinheiro(saldo) : <span className="saldo-oculto" />}
+          </p>
+        </div>
+
         <button
-          className="icone-olho"
+          className="olho"
           onClick={aoAlternar}
           aria-label={visivel ? 'Ocultar saldo' : 'Mostrar saldo'}
         >
@@ -27,22 +87,20 @@ export function BalanceCard({
         </button>
       </div>
 
-      <p className="saudacao">
-        Olá, {conta?.holderName ?? '...'}
-        <span
-          className={conectado ? 'conectado' : 'conectado off'}
-          title={conectado ? 'Notificações conectadas' : 'Notificações desconectadas'}
-        />
-      </p>
+      <div className="painel-resumo">
+        <div>
+          <p className="resumo-rotulo">Entrou</p>
+          <p className="resumo-valor dinheiro">{visivel ? formatarDinheiro(entradas) : '•••'}</p>
+        </div>
+        <div>
+          <p className="resumo-rotulo">Saiu</p>
+          <p className="resumo-valor dinheiro">{visivel ? formatarDinheiro(saidas) : '•••'}</p>
+        </div>
+      </div>
 
-      <p className="rotulo-saldo">Saldo disponível</p>
-      <p className="saldo">
-        {visivel ? (
-          conta ? formatarDinheiro(conta.balance) : '—'
-        ) : (
-          <span className="saldo-oculto" />
-        )}
-      </p>
-    </header>
+      <button className="painel-acao" onClick={aoTransferir} disabled={!conta}>
+        Transferir
+      </button>
+    </section>
   )
 }

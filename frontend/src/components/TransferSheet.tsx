@@ -82,15 +82,16 @@ export function TransferSheet({
   return (
     <div className="overlay" onClick={aoFechar}>
       <div
-        className="sheet"
+        className="caixa"
         role="dialog"
         aria-modal="true"
         aria-labelledby="titulo-transferir"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="puxador" />
+
         <h2 id="titulo-transferir">Transferir</h2>
-        <p className="lancamento-data">Da sua conta {origem.id}</p>
+        <p className="caixa-sub">Saindo da conta {origem.id}</p>
 
         {erroGeral && <div className="erro">{erroGeral}</div>}
 
@@ -100,61 +101,61 @@ export function TransferSheet({
             void enviar()
           }}
         >
-        <div className="campo">
-          <label htmlFor="destino">Número da conta de destino</label>
-          <input
-            id="destino"
-            inputMode="numeric"
-            placeholder="ex.: 2"
-            value={destino}
-            onChange={(e) => setDestino(e.target.value)}
-            autoFocus
-          />
-          {erroDestino && <div className="erro">{erroDestino}</div>}
-        </div>
+          <div className="campo">
+            <label htmlFor="destino">Conta de destino</label>
+            <input
+              id="destino"
+              inputMode="numeric"
+              placeholder="ex.: 2"
+              value={destino}
+              onChange={(e) => setDestino(e.target.value)}
+              autoFocus
+            />
+            {erroDestino && <div className="erro">{erroDestino}</div>}
+          </div>
 
-        <div className="campo">
-          <label htmlFor="valor">Quanto</label>
-          <input
-            id="valor"
-            inputMode="decimal"
-            placeholder="0,00"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-          />
-        </div>
+          <div className="campo">
+            <label htmlFor="valor">Quanto</label>
+            <input
+              id="valor"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+            />
+          </div>
 
-        <div className="campo">
-          <label htmlFor="senha-transacional">Senha transacional</label>
-          <input
-            id="senha-transacional"
-            type="password"
-            placeholder="••••••"
-            value={senhaTransacional}
-            onChange={(e) => setSenhaTransacional(e.target.value)}
-          />
-          {erroSenha && <div className="erro">{erroSenha}</div>}
-          <p className="lancamento-data">
-            Entrar prova quem você é. Mover dinheiro pede a segunda senha.
-          </p>
-        </div>
+          <div className="campo">
+            <label htmlFor="senha-transacional">Senha transacional</label>
+            <input
+              id="senha-transacional"
+              type="password"
+              placeholder="••••••"
+              value={senhaTransacional}
+              onChange={(e) => setSenhaTransacional(e.target.value)}
+            />
+            {erroSenha && <div className="erro">{erroSenha}</div>}
+            <p className="campo-nota">
+              Entrar prova quem você é. Mover dinheiro pede a segunda senha.
+            </p>
+          </div>
 
-        <div className="dica-chave">
-          <strong>Idempotency-Key</strong> desta tentativa:<br />
-          {idempotencyKey}
-          <br />
-          Tentar de novo com o mesmo valor reusa esta chave — o servidor
-          devolve a resposta original em vez de transferir duas vezes.
-        </div>
+          <div className="chave">
+            Chave de idempotência desta tentativa
+            <code>{idempotencyKey}</code>
+            Tentar de novo com o mesmo destino e valor reusa esta chave, e o servidor
+            devolve a resposta original em vez de transferir duas vezes.
+          </div>
 
-        <button className="botao-primario" type="submit" disabled={!podeEnviar}>
-          {enviando
-            ? 'Transferindo...'
-            : valorValido
-              ? `Transferir ${formatarDinheiro(valor.replace(',', '.'))}`
-              : 'Transferir'}
-        </button>
+          <button className="botao-primario" type="submit" disabled={!podeEnviar}>
+            {enviando
+              ? 'Transferindo...'
+              : valorValido
+                ? `Transferir ${formatarDinheiro(valor.replace(',', '.'))}`
+                : 'Transferir'}
+          </button>
         </form>
+
         <button className="botao-texto" onClick={aoFechar}>
           Cancelar
         </button>

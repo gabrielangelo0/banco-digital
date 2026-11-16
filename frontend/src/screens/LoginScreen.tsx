@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { buscarDemo, entrar, entrarComoVisitante, type DemoInfo } from '../api/auth'
+import { Vitrine } from './Vitrine'
 
 export function LoginScreen({
   aoEntrar,
@@ -33,94 +34,95 @@ export function LoginScreen({
 
   return (
     <div className="app">
-      {/* `tela-auth` centraliza na vertical e `auth-caixa` da o respiro
-          lateral que faltava: sem ela os campos encostam na borda da tela. */}
-      <div className="tela-auth">
-        <div className="auth-caixa">
-          <div className="marca">
-            <div className="marca-selo" aria-hidden="true">
-              B
-            </div>
-            <div>
-              <div className="marca-nome">Banco</div>
-              <div className="marca-linha">Estudo de consistência transacional</div>
-            </div>
-          </div>
+      <div className="entrada">
+        <Vitrine />
 
-          <h2>Entrar</h2>
+        <main className="entrada-corpo">
+          <div className="formulario">
+            <h2>Entrar</h2>
 
-          {erro && <div className="erro">{erro}</div>}
+            {erro && <div className="erro">{erro}</div>}
 
-          {/* <form> de verdade: no celular o teclado mostra "ir" em vez de
-              "enter", e no desktop o Enter no campo de senha envia. Sem ele,
-              entrar exigiria alcancar o botao. */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!enviando && email && senha) void tentar(() => entrar(email, senha))
-            }}
-          >
-            <div className="campo">
-              <label htmlFor="email">E-mail</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+            {/* <form> de verdade: no celular o teclado mostra "ir" em vez de
+                "enter", e no desktop o Enter no campo de senha envia. */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!enviando && email && senha) void tentar(() => entrar(email, senha))
+              }}
+            >
+              <div className="campo">
+                <label htmlFor="email">E-mail</label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
 
-            <div className="campo">
-              <label htmlFor="senha">Senha</label>
-              <input
-                id="senha"
-                type="password"
-                autoComplete="current-password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-              />
-            </div>
+              <div className="campo">
+                <label htmlFor="senha">Senha</label>
+                <input
+                  id="senha"
+                  type="password"
+                  autoComplete="current-password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                />
+              </div>
 
-            <button className="botao-primario" type="submit" disabled={enviando || !email || !senha}>
-              {enviando ? 'Entrando...' : 'Entrar'}
+              <button
+                className="botao-primario"
+                type="submit"
+                disabled={enviando || !email || !senha}
+              >
+                {enviando ? 'Entrando...' : 'Entrar'}
+              </button>
+            </form>
+
+            <button className="botao-texto" onClick={aoIrParaCadastro}>
+              Criar uma conta
             </button>
-          </form>
 
-          <button className="botao-texto" onClick={aoIrParaCadastro}>
-            Criar uma conta
-          </button>
+            {demo && (
+              <div className="visitantes">
+                <h3>Ou entre como visitante</h3>
 
-          {demo && (
-            <>
-              <p className="bloco-titulo">Entrar como visitante</p>
-              <div className="bloco">
                 {demo.accounts.map((c) => (
                   <button
                     key={c.id}
-                    className="lancamento lancamento-botao"
+                    className="visitante"
                     disabled={enviando}
                     onClick={() => void tentar(() => entrarComoVisitante(c.id))}
                   >
-                    <div className="seta visitante">{c.holderName.charAt(0)}</div>
-                    <div className="lancamento-info">
-                      <div className="lancamento-titulo">{c.holderName}</div>
-                      <div className="lancamento-data">conta {c.id}</div>
-                    </div>
+                    <span className="visitante-inicial" aria-hidden="true">
+                      {c.holderName.charAt(0)}
+                    </span>
+                    <span>
+                      <span className="visitante-nome">{c.holderName}</span>
+                      <span className="visitante-conta"> conta {c.id}</span>
+                    </span>
                   </button>
                 ))}
+
+                <div className="nota">
+                  <p>
+                    A senha transacional desta demonstração é{' '}
+                    <strong>{demo.transactionPassword}</strong>. Ela está à vista de
+                    propósito: entrar não autoriza mover dinheiro, então o recurso
+                    continua demonstrável sem virar brecha.
+                  </p>
+                  <p>
+                    Abra em duas abas, entre com contas diferentes e transfira de uma
+                    para a outra.
+                  </p>
+                </div>
               </div>
-              <div className="dica-chave">
-                A senha transacional desta demonstração é <strong>{demo.transactionPassword}</strong>.
-                Ela aparece aqui de propósito: entrar não autoriza mover dinheiro, e o
-                recurso continua demonstrável sem um atalho que viraria brecha.
-                <br />
-                Abra em duas abas, entre com contas diferentes e transfira — a
-                notificação chega de uma para a outra.
-              </div>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   )

@@ -1,34 +1,61 @@
 /* ---------------------------------------------------------------------------
- * Folha unica, organizada em tres camadas:
+ * Banco - folha unica.
  *
- *   1. base       - celular, coluna de 480px (o layout original)
- *   2. >= 600px   - a coluna vira cartao sobre o fundo, para tablet
- *   3. >= 900px   - duas colunas: saldo/acoes de um lado, extrato do outro
+ * Uma regra guia o arquivo inteiro: o DINHEIRO e a unica coisa que pode ser
+ * alta. Painel de saldo em violeta profundo, valores em peso 700 com
+ * algarismos tabulares - e todo o resto quieto, em tinta fraca, sem sombra
+ * decorativa e sem rotulo em caixa alta.
  *
- * Mobile-first de proposito: o app e um PWA, e a maioria das visitas vem do
- * celular. O desktop ganha o espaco horizontal em cima dessa base, nunca o
- * contrario - assim nenhuma regra de celular depende de um `max-width`.
+ * Camadas: celular (base), >=640px (a coluna vira cartao), >=980px (duas
+ * colunas, e a entrada vira vitrine + formulario).
  * ------------------------------------------------------------------------- */
 
+/* A fonte vem do proprio dominio. Numa tela de banco, um GET para o servidor
+   de outra empresa a cada visita entrega quem esta entrando - e sem rede o
+   PWA cairia na fonte do sistema. 27 KB, variavel de 400 a 800. */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fontes/plus-jakarta-sans-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
+  /* superficies */
+  --papel: #faf8fc;
+  --superficie: #ffffff;
+  --linha: #eee9f4;
+  --linha-forte: #e0d9ea;
+
+  /* tinta */
+  --tinta: #17111f;
+  --tinta-media: #574f63;
+  --tinta-fraca: #8b8398;
+
+  /* marca */
   --roxo: #820ad1;
   --roxo-escuro: #6a08ac;
-  --roxo-claro: #9b3ddb;
-  --texto: #1c1c1c;
-  --texto-fraco: #8f8f8f;
-  --fundo: #f5f5f7;
-  --cartao: #ffffff;
-  --borda: #ececf0;
-  --verde: #1db954;
-  --vermelho: #e53935;
-  --raio: 16px;
-  --sombra: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --roxo-lavado: #f4e9fd;
+  --noite-1: #2b0b52;
+  --noite-2: #7a12c9;
 
-  /* Respiro lateral em UM lugar: todo bloco interno usa esta medida, entao
-     mudar o respiro do tablet nao exige reescrever margem por margem. */
+  /* dinheiro: credito em verde, debito em tinta normal. Vermelho em todo
+     debito transforma "voce gastou" em "algo deu errado". */
+  --credito: #0a8f5f;
+  --alerta: #c92a2a;
+
+  /* forma */
+  --raio-painel: 22px;
+  --raio-cartao: 16px;
+  --raio-item: 12px;
+  --sombra-painel: 0 20px 44px -24px rgba(43, 11, 82, .65);
+  --sombra-cartao: 0 1px 2px rgba(23, 17, 31, .04), 0 10px 30px -22px rgba(23, 17, 31, .22);
+  --sombra-flutuante: 0 24px 60px -24px rgba(23, 17, 31, .35);
+
   --respiro: 20px;
-  --coluna: 480px;
-  --painel: 1040px;
+  --coluna: 460px;
+  --largura: 1120px;
 }
 
 * { box-sizing: border-box; }
@@ -37,286 +64,471 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--fundo);
-  color: var(--texto);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 
-/* Navegar com teclado e a forma normal de usar a web, e o contorno padrao do
-   navegador desaparece atras do fundo roxo. `:focus-visible` nao aparece para
-   quem clica com o mouse, so para quem chegou pelo Tab. */
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.015em; }
+
+/* Paragrafo e lista sao posicionados pelo layout, nao pela margem que o
+   navegador da por padrao. O reset e no ELEMENTO de proposito: `.vitrine p`
+   venceria `.vitrine-linha` por especificidade e anularia, sem aviso, todo
+   espacamento definido por classe. */
+p, ul { margin: 0; }
+
+/* Todo valor usa a mesma regra: algarismo de largura fixa, para a coluna de
+   dinheiro nao dancar quando o numero muda. */
+.dinheiro { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
 :focus-visible {
   outline: 2px solid var(--roxo);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
-.topo :focus-visible { outline-color: #fff; }
+.painel :focus-visible, .vitrine :focus-visible { outline-color: #fff; }
 
 .app {
-  max-width: var(--coluna);
-  margin: 0 auto;
   min-height: 100%;
-  background: var(--fundo);
-  padding-bottom: 32px;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ---------- topo roxo ---------- */
-.topo {
-  background: var(--roxo);
-  color: #fff;
-  padding: 28px var(--respiro) 24px;
-  border-radius: 0 0 20px 20px;
-}
-
-.topo-linha {
+/* ---------- barra superior ---------- */
+.barra {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 22px;
+  gap: 12px;
+  padding: 14px var(--respiro);
+  border-bottom: 1px solid var(--linha);
+  background: rgba(250, 248, 252, .86);
+  backdrop-filter: saturate(140%) blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
-.avatar {
-  width: 42px; height: 42px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+.marca { display: flex; align-items: center; gap: 10px; }
+
+.selo {
+  width: 32px; height: 32px; flex: 0 0 32px;
+  border-radius: 10px;
+  background: linear-gradient(140deg, var(--noite-2), var(--noite-1));
+  color: #fff;
   display: grid; place-items: center;
-  font-weight: 600; font-size: 17px;
+  font-size: 16px; font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
-.icone-olho {
-  color: #fff; opacity: .9;
-  font-size: 20px; line-height: 1;
-  padding: 8px;
+.marca-nome { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+
+.barra-conta { margin-left: auto; text-align: right; line-height: 1.25; }
+.barra-nome { font-size: 13.5px; font-weight: 600; }
+.barra-numero { font-size: 11.5px; color: var(--tinta-fraca); }
+
+/* Ponto de conexao: o estado do SSE e informacao, nao enfeite - quem esta
+   olhando precisa saber se a notificacao ainda chega. */
+.pulso {
+  width: 8px; height: 8px; flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--credito);
+  box-shadow: 0 0 0 3px rgba(10, 143, 95, .16);
+}
+.pulso.off { background: var(--tinta-fraca); box-shadow: 0 0 0 3px rgba(139, 131, 152, .16); }
+
+.botao-fantasma {
+  padding: 8px 13px;
+  border-radius: 999px;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--tinta-media);
+  border: 1px solid var(--linha-forte);
+  background: var(--superficie);
+  transition: border-color .15s ease, color .15s ease;
 }
 
-.saudacao { font-size: 19px; font-weight: 600; margin: 0 0 20px; }
-
-.rotulo-saldo {
-  font-size: 13px; opacity: .85; margin: 0 0 4px;
+/* ---------- corpo ---------- */
+.conteudo {
+  flex: 1;
+  width: 100%;
+  max-width: var(--coluna);
+  margin: 0 auto;
+  padding: 18px var(--respiro) 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
+
+/* ---------- painel de saldo ---------- */
+.painel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--raio-painel);
+  padding: 26px 24px 24px;
+  color: #fff;
+  background:
+    radial-gradient(120% 120% at 88% 0%, rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(152deg, var(--noite-1) 0%, #4a0f8f 48%, var(--noite-2) 100%);
+  box-shadow: var(--sombra-painel);
+}
+
+.painel-topo {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+}
+
+.painel-rotulo { font-size: 13px; color: rgba(255, 255, 255, .72); font-weight: 500; }
 
 .saldo {
-  font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin: 0;
-  font-variant-numeric: tabular-nums;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin-top: 4px;
 }
 
 .saldo-oculto {
   display: inline-block;
-  width: 150px; height: 26px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.28);
-  vertical-align: -4px;
+  width: 168px; height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .22);
+  vertical-align: -3px;
 }
 
-/* ---------- acoes ---------- */
-.acoes {
-  display: flex; gap: 10px;
-  overflow-x: auto;
-  padding: 18px var(--respiro);
-  scrollbar-width: none;
-}
-.acoes::-webkit-scrollbar { display: none; }
-
-.acao {
-  flex: 0 0 auto;
-  display: flex; flex-direction: column; align-items: center; gap: 7px;
-  min-width: 76px;
-  padding: 14px 10px;
-  background: var(--cartao);
-  border-radius: var(--raio);
-  box-shadow: var(--sombra);
-  font-size: 12px; color: var(--texto);
-  transition: transform .12s ease, box-shadow .15s ease;
-}
-.acao:active { transform: scale(0.96); }
-.acao[disabled] { opacity: .45; cursor: default; }
-.acao-icone { font-size: 20px; line-height: 1; }
-
-/* ---------- blocos ---------- */
-.bloco {
-  margin: 8px var(--respiro) 0;
-  background: var(--cartao);
-  border-radius: var(--raio);
-  box-shadow: var(--sombra);
-  overflow: hidden;
-}
-
-.bloco-titulo {
-  font-size: 13px; font-weight: 600; color: var(--texto-fraco);
-  text-transform: uppercase; letter-spacing: .4px;
-  margin: 26px var(--respiro) 10px;
-}
-
-/* ---------- extrato ---------- */
-.lancamento {
-  display: flex; align-items: center; gap: 13px;
-  padding: 15px 18px;
-  border-bottom: 1px solid var(--borda);
-}
-.lancamento:last-child { border-bottom: none; }
-
-.seta {
+.olho {
   width: 36px; height: 36px; flex: 0 0 36px;
   border-radius: 50%;
   display: grid; place-items: center;
-  font-size: 15px; font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, .12);
+  font-size: 15px; line-height: 1;
+  transition: background .15s ease;
 }
-.seta.entrada { background: rgba(29, 185, 84, .12); color: var(--verde); }
-.seta.saida { background: rgba(229, 57, 53, .10); color: var(--vermelho); }
-/* Entrar como visitante nao e entrada nem saida de dinheiro: a cor da marca
-   evita que o cartao de uma conta de demonstracao pareca um credito. */
-.seta.visitante { background: rgba(130, 10, 209, .10); color: var(--roxo); }
 
-.lancamento-info { flex: 1; min-width: 0; }
-.lancamento-titulo { font-size: 14.5px; font-weight: 500; }
-.lancamento-data { font-size: 12px; color: var(--texto-fraco); margin-top: 2px; }
+.painel-resumo {
+  display: flex;
+  gap: 32px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .16);
+}
+
+.resumo-rotulo { font-size: 12px; color: rgba(255, 255, 255, .66); }
+.resumo-valor { font-size: 15px; font-weight: 700; margin-top: 2px; }
+
+.painel-acao {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 15px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--noite-1);
+  font-size: 15px; font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: transform .14s ease, box-shadow .15s ease;
+}
+.painel-acao:active { transform: scale(.985); }
+
+/* ---------- extrato ---------- */
+.extrato-topo {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+.extrato-topo h2 { font-size: 17px; }
+.extrato-contagem { font-size: 12.5px; color: var(--tinta-fraca); }
+
+.razao {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-cartao);
+  box-shadow: var(--sombra-cartao);
+  overflow: hidden;
+}
+
+.dia-titulo {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tinta-fraca);
+  padding: 11px 18px 9px;
+  background: var(--papel);
+  border-bottom: 1px solid var(--linha);
+}
+.dia + .dia .dia-titulo { border-top: 1px solid var(--linha); }
+
+.lancamento {
+  display: flex; align-items: center; gap: 13px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--linha);
+}
+.dia:last-child .lancamento:last-child { border-bottom: none; }
+
+.lancamento-icone {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 700;
+  background: rgba(23, 17, 31, .05);
+  color: var(--tinta-media);
+}
+/* `credito`, e nao `entrada`: `.entrada` ja e o contenedor da tela de
+   entrar, e a regra `flex: 1` dele vinha esticando este circulo numa elipse.
+   Mesmo nome para duas coisas em CSS global nao da erro, da defeito. */
+.lancamento-icone.credito { background: rgba(10, 143, 95, .11); color: var(--credito); }
+
+.lancamento-corpo { flex: 1; min-width: 0; }
+.lancamento-titulo { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; }
+.lancamento-hora { font-size: 12.5px; color: var(--tinta-fraca); margin-top: 1px; }
+
+.lancamento-id {
+  display: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--tinta-fraca);
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  padding: 3px 7px;
+}
 
 .lancamento-valor {
-  font-size: 14.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-size: 15px; font-weight: 700;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
-.lancamento-valor.entrada { color: var(--verde); }
+.lancamento-valor.credito { color: var(--credito); }
+
+/* A linha que acabou de chegar pelo SSE acende e apaga. E a unica animacao
+   nao pedida da tela, e existe porque ela RESPONDE a uma mudanca: sem ela,
+   dinheiro novo aparece na lista sem que ninguem perceba. */
+@keyframes acender {
+  from { background: var(--roxo-lavado); }
+  to { background: transparent; }
+}
+.lancamento.novo { animation: acender 2.2s ease-out; }
 
 .vazio {
-  padding: 34px 20px; text-align: center;
-  color: var(--texto-fraco); font-size: 14px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--tinta-fraca);
+  font-size: 14px;
+  line-height: 1.6;
 }
-
-/* Botao que ocupa a linha inteira do extrato (entrar como visitante). O
-   `.lancamento` foi desenhado como <div>; como <button> ele precisa perder os
-   padroes de botao para nao ficar centralizado e estreito. */
-.lancamento-botao {
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-}
+.vazio strong { display: block; color: var(--tinta); font-size: 15px; margin-bottom: 4px; font-weight: 600; }
 
 /* ---------- entrar e cadastrar ---------- */
-/* Formulario centralizado na vertical: no celular ele comeca no alto, e numa
-   tela de desktop fica no meio em vez de pendurado no topo. */
-.tela-auth {
-  min-height: 100%;
+.entrada {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 28px 0 40px;
 }
 
-.auth-caixa {
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  /* O respiro lateral que o `.app` nunca teve: sem isto os campos encostam
-     na borda da tela no celular. */
-  padding: 0 var(--respiro);
-}
-
-.marca {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 26px;
-}
-.marca-selo {
-  width: 38px; height: 38px; flex: 0 0 38px;
-  border-radius: 11px;
-  background: var(--roxo);
+/* No celular a vitrine e um cabecalho curto; no desktop ela vira a metade
+   esquerda da tela. O conteudo e o mesmo. */
+.vitrine {
+  position: relative;
+  overflow: hidden;
   color: #fff;
-  display: grid; place-items: center;
-  font-size: 19px; font-weight: 700;
+  padding: 24px var(--respiro) 26px;
+  background:
+    radial-gradient(130% 110% at 85% 0%, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, 0) 58%),
+    linear-gradient(152deg, var(--noite-1) 0%, #4a0f8f 52%, var(--noite-2) 100%);
 }
-.marca-nome { font-size: 17px; font-weight: 600; }
-.marca-linha { font-size: 12.5px; color: var(--texto-fraco); margin-top: 1px; }
 
-.auth-caixa h2 { font-size: 22px; margin: 0 0 20px; }
+.vitrine-marca { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.vitrine-marca .selo { background: rgba(255, 255, 255, .16); }
+.vitrine-marca .marca-nome { color: #fff; }
 
-/* Dentro do formulario os blocos nao tem margem propria: o respiro ja vem da
-   caixa. Sem isto, o cartao de visitante ficaria desalinhado dos campos. */
-.auth-caixa .bloco { margin: 0; }
-.auth-caixa .bloco-titulo { margin: 26px 0 10px; }
+.vitrine h1 {
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  max-width: 18ch;
+}
 
-.campo { margin-bottom: 18px; }
+.vitrine-linha {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .78);
+  max-width: 46ch;
+}
+
+/* A lista so aparece onde ha tela: no celular, quem abriu quer entrar, e
+   quatro paragrafos antes do campo de e-mail sao quatro paragrafos a mais. */
+.vitrine-lista {
+  display: none;
+  list-style: none;
+  margin-top: 28px;
+  padding: 0;
+  gap: 14px;
+  max-width: 44ch;
+}
+.vitrine-lista li {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .82);
+  padding-left: 20px;
+  position: relative;
+}
+.vitrine-lista li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .55);
+}
+
+/* So onde ha altura sobrando: no celular a vitrine e um cabecalho curto e
+   esta linha empurraria o formulario para fora da tela. */
+.vitrine-rodape { display: none; }
+
+.entrada-corpo {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 26px var(--respiro) 44px;
+}
+
+.formulario { width: 100%; max-width: 400px; }
+.formulario h2 { font-size: 21px; margin-bottom: 18px; }
+
+.campo { margin-bottom: 16px; }
 .campo label {
-  display: block; font-size: 12.5px; color: var(--texto-fraco);
-  margin-bottom: 7px; font-weight: 500;
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta-media);
+  margin-bottom: 6px;
 }
 
-.campo input, .campo select {
+.campo input {
   width: 100%;
   padding: 13px 14px;
-  /* 16px nao e estetica: abaixo disso o Safari do iOS da zoom no campo ao
-     focar, e a pagina fica deslocada depois. */
+  /* 16px: abaixo disso o Safari do iOS da zoom no campo ao focar. */
   font-size: 16px;
-  border: 1.5px solid var(--borda);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--texto);
   font-family: inherit;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--linha-forte);
+  border-radius: var(--raio-item);
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.campo input:focus, .campo select:focus {
-  outline: none; border-color: var(--roxo);
+.campo input::placeholder { color: var(--tinta-fraca); }
+.campo input:focus {
+  outline: none;
+  border-color: var(--roxo);
+  box-shadow: 0 0 0 4px rgba(130, 10, 209, .12);
 }
+.campo-nota { font-size: 12.5px; color: var(--tinta-fraca); margin: 6px 0 0; line-height: 1.45; }
+.campo-nota + .botao-primario { margin-top: 18px; }
 
 .botao-primario {
   width: 100%;
-  padding: 15px;
+  padding: 14px;
+  border-radius: 999px;
   background: var(--roxo);
   color: #fff;
-  font-size: 15.5px; font-weight: 600;
-  border-radius: 999px;
-  transition: background .15s ease;
+  font-size: 15px; font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: background .15s ease, transform .14s ease;
 }
-.botao-primario[disabled] { opacity: .5; cursor: default; }
+.botao-primario:active:not([disabled]) { transform: scale(.99); }
+.botao-primario[disabled] { background: var(--linha-forte); color: var(--tinta-fraca); cursor: default; }
 
 .botao-texto {
-  width: 100%; padding: 13px; margin-top: 8px;
-  color: var(--texto-fraco); font-size: 14px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
   border-radius: 999px;
+  color: var(--tinta-media);
+  font-size: 14px; font-weight: 600;
 }
 
 .erro {
-  background: rgba(229, 57, 53, .08);
-  color: var(--vermelho);
+  display: flex; gap: 9px;
+  background: rgba(201, 42, 42, .07);
+  color: #96201f;
   padding: 11px 13px;
-  border-radius: 10px;
+  border-radius: var(--raio-item);
   font-size: 13.5px;
-  margin-bottom: 16px;
+  line-height: 1.45;
+  margin-bottom: 14px;
 }
+.campo .erro { margin: 8px 0 0; }
 
-.dica-chave {
-  font-size: 11.5px;
-  color: var(--texto-fraco);
-  background: var(--fundo);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 16px;
-  line-height: 1.5;
-  /* `break-all` quebrava PALAVRA no meio ("dinhei/ro") porque o bloco tambem
-     exibe a Idempotency-Key, que nao cabe inteira. `anywhere` so quebra
-     quando a palavra nao cabe de jeito nenhum: a chave quebra, o texto nao. */
-  overflow-wrap: anywhere;
+/* ---------- entrar como visitante ---------- */
+.visitantes { margin-top: 26px; }
+.visitantes h3 { font-size: 13.5px; color: var(--tinta-media); margin-bottom: 10px; }
+
+.visitante {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-item);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .14s ease;
 }
+.visitante + .visitante { margin-top: 8px; }
+.visitante[disabled] { opacity: .55; cursor: default; }
 
-/* ---------- transferir: folha no celular, caixa no desktop ---------- */
+.visitante-inicial {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--roxo-lavado);
+  color: var(--roxo);
+  font-size: 14px; font-weight: 700;
+}
+.visitante-nome { display: block; font-size: 14.5px; font-weight: 600; }
+.visitante-conta { display: block; font-size: 12.5px; color: var(--tinta-fraca); }
+
+.nota {
+  margin-top: 14px;
+  padding: 13px 14px;
+  background: var(--roxo-lavado);
+  border-radius: var(--raio-item);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #4a2a63;
+}
+.nota strong { font-weight: 700; }
+
+.nota p + p { margin-top: 7px; }
+
+/* ---------- transferir ---------- */
 .overlay {
   position: fixed; inset: 0;
-  background: rgba(0, 0, 0, .45);
+  background: rgba(23, 17, 31, .5);
+  backdrop-filter: blur(3px);
   display: flex; align-items: flex-end;
   z-index: 40;
   animation: aparecer .18s ease;
 }
 @keyframes aparecer { from { opacity: 0 } to { opacity: 1 } }
 
-.sheet {
-  width: 100%; max-width: var(--coluna); margin: 0 auto;
-  background: var(--cartao);
-  border-radius: 20px 20px 0 0;
-  padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
-  animation: subir .24s cubic-bezier(.22,.8,.3,1);
-  max-height: 88vh; overflow-y: auto;
+.caixa {
+  width: 100%;
+  max-width: var(--coluna);
+  margin: 0 auto;
+  background: var(--superficie);
+  border-radius: var(--raio-painel) var(--raio-painel) 0 0;
+  padding: 10px 20px calc(22px + env(safe-area-inset-bottom));
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: subir .26s cubic-bezier(.22, .8, .3, 1);
 }
 @keyframes subir { from { transform: translateY(100%) } to { transform: translateY(0) } }
 @keyframes surgir {
@@ -325,154 +537,210 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 
 .puxador {
-  width: 38px; height: 4px; border-radius: 2px;
-  background: #dcdce2; margin: 4px auto 18px;
+  width: 40px; height: 4px;
+  border-radius: 2px;
+  background: var(--linha-forte);
+  margin: 4px auto 16px;
 }
 
-.sheet h2 { font-size: 19px; margin: 0 0 20px; }
+.caixa h2 { font-size: 19px; }
+.caixa-sub { font-size: 13px; color: var(--tinta-fraca); margin: 3px 0 20px; }
 
-/* ---------- toast ---------- */
+/* A chave de idempotencia e um identificador, nao texto: monoespacada porque
+   quem le vai conferir caractere por caractere com o log do servidor. */
+.chave {
+  margin: 4px 0 18px;
+  padding: 12px 13px;
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-item);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--tinta-media);
+}
+.chave code {
+  display: block;
+  margin: 5px 0 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- aviso ---------- */
 .toasts {
   position: fixed; top: 14px; left: 0; right: 0;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   z-index: 60; pointer-events: none;
-  padding: 0 16px;
+  padding: 0 14px;
 }
 
 .toast {
-  width: 100%; max-width: 420px;
-  background: #241b2b;
-  color: #fff;
-  border-radius: 14px;
-  padding: 13px 16px;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, .28);
+  width: 100%; max-width: 400px;
   display: flex; align-items: center; gap: 12px;
-  animation: descer .26s cubic-bezier(.22,.8,.3,1);
+  padding: 13px 16px;
+  border-radius: var(--raio-cartao);
+  background: var(--tinta);
+  color: #fff;
+  box-shadow: var(--sombra-flutuante);
+  animation: descer .28s cubic-bezier(.22, .8, .3, 1);
 }
-@keyframes descer { from { transform: translateY(-16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+@keyframes descer {
+  from { transform: translateY(-14px); opacity: 0 }
+  to { transform: translateY(0); opacity: 1 }
+}
 
 .toast-icone {
   width: 32px; height: 32px; flex: 0 0 32px;
-  border-radius: 50%; display: grid; place-items: center;
-  background: rgba(255,255,255,.14); font-size: 15px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, .13);
+  font-size: 14px; font-weight: 700;
 }
-.toast-titulo { font-size: 13.5px; font-weight: 600; }
-.toast-texto { font-size: 12.5px; opacity: .8; margin-top: 1px; }
+.toast-titulo { font-size: 13.5px; font-weight: 700; }
+.toast-texto { font-size: 12.5px; color: rgba(255, 255, 255, .7); margin-top: 1px; }
 
-.conectado {
-  display: inline-block; width: 7px; height: 7px;
-  border-radius: 50%; background: #7ee787;
-  margin-left: 7px; vertical-align: middle;
+/* ---------- carregando ---------- */
+.carregando {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--tinta-fraca);
+  font-size: 14px;
 }
-.conectado.off { background: rgba(255,255,255,.4); }
 
 /* ---------------------------------------------------------------------------
- * Ponteiro com hover: mouse, nao dedo.
- *
- * Num celular o navegador emula :hover depois do toque e o estado FICA preso
- * no item tocado. `@media (hover: hover)` so vale onde existe um ponteiro de
- * verdade, entao o feedback de mouse nao vaza para o toque.
+ * Ponteiro de verdade. No toque o navegador emula :hover e o estado fica
+ * preso no item tocado depois que o dedo sai.
  * ------------------------------------------------------------------------- */
 @media (hover: hover) {
   .botao-primario:hover:not([disabled]) { background: var(--roxo-escuro); }
-  .botao-texto:hover { color: var(--texto); background: rgba(0, 0, 0, .035); }
-  .acao:not([disabled]):hover {
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .10);
+  .botao-texto:hover { color: var(--tinta); background: rgba(23, 17, 31, .04); }
+  .botao-fantasma:hover { border-color: var(--tinta-fraca); color: var(--tinta); }
+  .painel-acao:hover { box-shadow: 0 10px 26px -12px rgba(0, 0, 0, .45); }
+  .olho:hover { background: rgba(255, 255, 255, .22); }
+  .visitante:hover:not([disabled]) {
+    border-color: var(--roxo);
+    box-shadow: 0 10px 24px -18px rgba(130, 10, 209, .8);
     transform: translateY(-1px);
   }
-  .lancamento-botao:hover:not([disabled]) { background: rgba(130, 10, 209, .04); }
-  .icone-olho:hover { opacity: 1; }
 }
 
-/* ---------------------------------------------------------------------------
- * >= 600px: a coluna deixa de encostar nas bordas e vira cartao.
- * ------------------------------------------------------------------------- */
-@media (min-width: 600px) {
-  .app { padding-top: 24px; padding-bottom: 40px; }
-
-  .topo {
-    margin: 0 var(--respiro);
-    border-radius: var(--raio);
+/* Quem pediu menos movimento recebe o estado final, nao o caminho ate ele. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
   }
-
-  .tela-auth { padding: 40px 0 48px; }
 }
 
 /* ---------------------------------------------------------------------------
- * >= 900px: duas colunas.
+ * >= 640px: a coluna deixa de encostar nas bordas.
+ * ------------------------------------------------------------------------- */
+@media (min-width: 640px) {
+  .conteudo { padding-top: 24px; }
+  .barra { padding-left: 28px; padding-right: 28px; }
+
+  .vitrine { padding: 34px 28px 36px; }
+  .vitrine h1 { font-size: 30px; }
+  .entrada-corpo { padding-top: 32px; }
+
+  .overlay { align-items: center; padding: 24px; }
+  .caixa {
+    max-width: 430px;
+    border-radius: var(--raio-painel);
+    padding: 24px 24px 24px;
+    max-height: 88vh;
+    animation: surgir .22s cubic-bezier(.22, .8, .3, 1);
+  }
+  .puxador { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * >= 980px: duas colunas.
  *
- * A ordem no DOM continua a do celular (saldo, acoes, extrato, sair) e quem
- * decide a posicao e o grid, por area nomeada. Assim o desktop reposiciona
- * sem trocar a ordem de leitura nem a ordem do Tab.
+ * A ordem no DOM continua a do celular; quem reposiciona e o grid. A ordem de
+ * leitura e a do Tab nao mudam com a largura da janela.
  * ------------------------------------------------------------------------- */
-@media (min-width: 900px) {
-  .app {
-    max-width: var(--painel);
-    padding: 32px 32px 48px;
-  }
+@media (min-width: 980px) {
+  .barra { padding: 16px 40px; }
+  .marca-nome { font-size: 17px; }
 
-  .painel {
+  .conteudo {
+    max-width: var(--largura);
+    padding: 36px 40px 64px;
     display: grid;
-    grid-template-columns: minmax(290px, 340px) 1fr;
-    grid-template-areas:
-      "saldo  extrato"
-      "acoes  extrato"
-      "sair   extrato";
-    grid-template-rows: auto auto 1fr;
-    gap: 16px 28px;
+    grid-template-columns: minmax(320px, 396px) 1fr;
+    gap: 32px;
     align-items: start;
   }
 
-  .topo {
-    grid-area: saldo;
-    margin: 0;
-    border-radius: var(--raio);
-    padding: 26px 24px 28px;
-  }
-
-  /* No celular as acoes rolam na horizontal porque nao cabem. Aqui cabem:
-     rolagem lateral com mouse e um jeito ruim de esconder botao. */
-  .acoes {
-    grid-area: acoes;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    padding: 0;
-    overflow: visible;
-  }
-  .acao { min-width: 0; padding: 18px 10px; }
-
-  .extrato { grid-area: extrato; min-width: 0; }
-  .extrato .bloco-titulo { margin: 0 0 12px; }
-  .extrato .bloco { margin: 0; }
-
-  .sair { grid-area: sair; margin: 0; }
-
-  /* O extrato tem mais largura do que precisa: o respiro cresce com ela, em
-     vez de deixar a linha esticada de ponta a ponta. */
-  .extrato .lancamento { padding: 16px 22px; }
-
-  /* Transferir deixa de ser folha do rodape e passa a ser caixa no meio: numa
-     tela larga, um painel colado embaixo e um gesto de celular sem celular. */
-  .overlay { align-items: center; padding: 24px; }
-  .sheet {
-    max-width: 440px;
-    border-radius: 20px;
-    padding: 24px 24px 26px;
-    max-height: 86vh;
-    animation: surgir .2s cubic-bezier(.22,.8,.3,1);
-  }
-  .puxador { display: none; }
-
-  .tela-auth { padding: 56px 0 64px; }
-  /* O formulario ganha fundo proprio: no celular ele esta sobre a tela toda,
-     numa tela larga precisa de uma borda para nao flutuar no cinza. */
-  .auth-caixa {
-    background: var(--cartao);
-    border-radius: 20px;
-    box-shadow: var(--sombra);
+  .painel {
     padding: 30px 28px 28px;
-    max-width: 440px;
+    /* O saldo acompanha a rolagem do extrato: numa conta com muitos
+       lancamentos, saber quanto sobrou e o contexto de tudo que se le. */
+    position: sticky;
+    top: 96px;
   }
-  .auth-caixa .dica-chave { margin-bottom: 0; }
+  .saldo { font-size: 48px; }
+  .painel-rotulo { font-size: 13.5px; }
+  .resumo-valor { font-size: 16px; }
+
+  .extrato { min-width: 0; }
+  .lancamento-id { display: block; }
+
+  /* Com largura sobrando a linha vira tabela de verdade: icone, descricao,
+     identificador e valor em colunas fixas, alinhados linha a linha. */
+  .lancamento {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 86px 140px;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 22px;
+  }
+  .lancamento-valor { text-align: right; }
+  .dia-titulo { padding-left: 22px; padding-right: 22px; }
+  .extrato-topo { padding: 0 2px; margin-bottom: 12px; }
+
+  /* A entrada vira vitrine a esquerda e formulario a direita: a primeira
+     tela do app e tambem a unica chance de dizer o que ele demonstra. */
+  .entrada {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    min-height: 100%;
+  }
+  .vitrine {
+    padding: 54px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .vitrine h1 { font-size: 40px; line-height: 1.1; max-width: 13ch; }
+  .vitrine-linha { font-size: 15.5px; margin-top: 24px; }
+  .vitrine-lista { display: grid; margin-top: 36px; gap: 17px; }
+  .vitrine-rodape {
+    display: block;
+    margin-top: 44px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, .58);
+  }
+  .vitrine-rodape a {
+    color: rgba(255, 255, 255, .92);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  .entrada-corpo {
+    align-items: center;
+    padding: 48px;
+    background: var(--papel);
+  }
+  .formulario { max-width: 380px; }
+}
+
+@media (min-width: 1240px) {
+  .vitrine { padding: 64px 72px; }
+  .vitrine h1 { font-size: 46px; }
 }

@@ -14,11 +14,11 @@ function Toast({ notificacao, aoFechar }: { notificacao: Notificacao; aoFechar: 
     <div className="toast" role="status">
       <div className="toast-icone">{entrou ? '↓' : '↑'}</div>
       <div>
-        <div className="toast-titulo">
-          {entrou ? 'Você recebeu' : 'Transferência enviada'} {formatarDinheiro(notificacao.amount)}
+        <div className="toast-titulo dinheiro">
+          {entrou ? 'Você recebeu' : 'Você enviou'} {formatarDinheiro(notificacao.amount)}
         </div>
         <div className="toast-texto">
-          {entrou ? 'de' : 'para'} conta {notificacao.counterpartAccountId}
+          {entrou ? 'da' : 'para a'} conta {notificacao.counterpartAccountId}
         </div>
       </div>
     </div>
