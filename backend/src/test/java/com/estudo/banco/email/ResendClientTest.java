@@ -97,6 +97,21 @@ class ResendClientTest {
     }
 
     @Test
+    void oMotivoDaRecusaFicaNaMensagemDoErro() {
+        // "recusou com 403" nao diz por que. O provedor manda o motivo no
+        // corpo, e e ele que vai parar no last_error da fila - que existe
+        // justamente para responder "por que esse e-mail nao saiu?".
+        servidor.expect(requestTo(anything())).andRespond(withStatus(HttpStatus.FORBIDDEN)
+                .body("{\"message\":\"The bank.devfly.net domain is not verified.\"}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> cliente.enviar(mensagem()))
+                .isInstanceOf(FalhaDefinitivaDoProvedor.class)
+                .hasMessageContaining("403")
+                .hasMessageContaining("domain is not verified");
+    }
+
+    @Test
     void aChaveNaoApareceNaMensagemDeErro() {
         servidor.expect(requestTo(anything())).andRespond(withStatus(HttpStatus.FORBIDDEN));
 

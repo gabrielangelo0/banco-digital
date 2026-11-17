@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse;
 import org.springframework.web.client.RestClient;
 
 import java.util.Map;
@@ -62,7 +63,7 @@ public class ResendClient {
                         if (status.is2xxSuccessful()) {
                             return resultado.bodyTo(Map.class);
                         }
-                        throw classificar(status);
+                        throw classificar(status, corpoDe(resultado));
                     });
 
             Object id = resposta == null ? null : resposta.get("id");
@@ -88,11 +89,30 @@ public class ResendClient {
         }
     }
 
-    private RuntimeException classificar(HttpStatusCode status) {
+    private RuntimeException classificar(HttpStatusCode status, String corpo) {
         // 429 e 4xx mas quer dizer "mais devagar", nao "pedido errado".
         if (status.is5xxServerError() || status.value() == 429) {
-            return new FalhaTemporariaDoProvedor("provedor respondeu " + status.value());
+            return new FalhaTemporariaDoProvedor(
+                    "provedor respondeu " + status.value() + ": " + corpo);
         }
-        return new FalhaDefinitivaDoProvedor("provedor recusou com " + status.value());
+        return new FalhaDefinitivaDoProvedor(
+                "provedor recusou com " + status.value() + ": " + corpo);
+    }
+
+    /**
+     * O motivo que o provedor mandou, para ir parar no `last_error` da fila.
+     *
+     * Sem ele, "recusou com 403" nao diz se o dominio nao esta verificado, se
+     * a chave foi revogada ou se o destinatario e invalido - e a fila existe
+     * justamente para responder "por que esse e-mail nao saiu?". O corpo da
+     * resposta nao carrega a chave: ela viaja em cabecalho.
+     */
+    private String corpoDe(ConvertibleClientHttpResponse resultado) {
+        try {
+            String corpo = resultado.bodyTo(String.class);
+            return corpo == null || corpo.isBlank() ? "(sem corpo)" : corpo.strip();
+        } catch (RuntimeException e) {
+            return "(corpo ilegivel)";
+        }
     }
 }
