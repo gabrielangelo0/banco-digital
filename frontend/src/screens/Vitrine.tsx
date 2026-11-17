@@ -32,6 +32,10 @@ export function Vitrine() {
           O servidor empurra a notificação quando a transferência fecha, em vez de o
           app ficar perguntando.
         </li>
+        <li>
+          Quem se cadastra recebe o comprovante por e-mail. Para ver a ida e a volta,
+          são dois cadastros: conta de demonstração não transfere para fora do par.
+        </li>
       </ul>
 
       <p className="vitrine-rodape">

@@ -21,6 +21,16 @@ clicá-los diz isso em vez de não fazer nada. Tudo o que não está marcado é 
 o extrato, a busca, o gráfico de saídas por dia e o total do mês saem do que o servidor
 devolveu.
 
+Quando uma transferência fecha, as duas pontas recebem o comprovante por e-mail.
+Ele é o primeiro consumidor do evento de transferência que vive **fora** do
+processo — a notificação por SSE some se o navegador estiver fechado, o e-mail
+não —, e por isso tem fila própria no banco, com reentrega e um registro do que
+saiu: dá para responder "esse e-mail foi enviado? quando? com qual identificador
+no provedor?" consultando uma tabela. As contas de demonstração não recebem nada:
+o endereço delas não existe, e o reset de hora em hora passa pelo mesmo caminho
+de uma transferência comum — sem a trava, seriam dois e-mails inválidos por hora,
+para sempre.
+
 Há cadastro e login — e **duas senhas**: a de acesso prova quem você é, a transacional
 autoriza mover dinheiro. Autenticar não é autorizar. Para ver sem se cadastrar, entre como
 visitante em uma das duas contas de demonstração; os saldos delas voltam ao estado inicial

@@ -87,6 +87,14 @@ services:
       # Cron da restauracao da demonstracao. Default: minuto zero de cada hora.
       # E o unico gatilho que existe - nao ha comando manual.
       BANCO_DEMO_RESET_CRON: ${BANCO_DEMO_RESET_CRON:-0 0 * * * *}
+      # E-mail transacional. A fila e escrita de qualquer jeito; ENABLED liga
+      # so a entrega, entao subir sem a chave nao perde comprovante nenhum.
+      BANCO_EMAIL_ENABLED: ${BANCO_EMAIL_ENABLED:-false}
+      BANCO_EMAIL_API_KEY: ${BANCO_EMAIL_API_KEY:-}
+      # Default repetido do application.yml de proposito: `${VAR:-}` define a
+      # variavel VAZIA, e valor vazio sobrescreve o default do Spring em vez de
+      # cair nele - o remetente sairia em branco.
+      BANCO_EMAIL_FROM: ${BANCO_EMAIL_FROM:-Banco <banco@bank.devfly.net>}
 
     # A JVM calcula o heap a partir do limite do cgroup (MaxRAMPercentage=75,
     # no Dockerfile). SEM limite de container ela le a RAM do HOST: numa
