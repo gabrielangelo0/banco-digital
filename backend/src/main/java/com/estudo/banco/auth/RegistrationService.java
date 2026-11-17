@@ -2,6 +2,8 @@ package com.estudo.banco.auth;
 
 import com.estudo.banco.account.Account;
 import com.estudo.banco.account.AccountRepository;
+import com.estudo.banco.email.EmailQueue;
+import com.estudo.banco.email.EmailTemplates;
 import com.estudo.banco.error.CadastroInvalidoException;
 import com.estudo.banco.user.User;
 import com.estudo.banco.user.UserRepository;
@@ -28,12 +30,17 @@ public class RegistrationService {
     private final UserRepository usuarios;
     private final AccountRepository contas;
     private final PasswordEncoder encoder;
+    private final EmailTemplates textos;
+    private final EmailQueue fila;
 
     public RegistrationService(UserRepository usuarios, AccountRepository contas,
-                               PasswordEncoder encoder) {
+                               PasswordEncoder encoder, EmailTemplates textos,
+                               EmailQueue fila) {
         this.usuarios = usuarios;
         this.contas = contas;
         this.encoder = encoder;
+        this.textos = textos;
+        this.fila = fila;
     }
 
     @Transactional
@@ -55,7 +62,19 @@ public class RegistrationService {
                     encoder.encode(password),
                     encoder.encode(transactionPassword)));
 
-            Account conta = contas.save(new Account(titular(normalizado), SALDO_INICIAL, usuario.getId()));
+            String titular = titular(normalizado);
+            Account conta = contas.save(new Account(titular, SALDO_INICIAL, usuario.getId()));
+
+            // Na MESMA transacao da conta, de proposito: nao existe
+            // "boas-vindas a um cadastro que nao houve". Aqui so se enfileira;
+            // quem entrega e o agendador, fora desta transacao.
+            //
+            // A chave leva o id do USUARIO e o corpo mostra o numero da CONTA:
+            // sao dois numeros diferentes, e trocar um pelo outro faria dois
+            // cadastros distintos compartilharem a mesma chave.
+            fila.enfileirar(textos.boasVindas(
+                    normalizado, titular, usuario.getId(), conta.getId(), SALDO_INICIAL));
+
             return conta.getId();
         } catch (DataIntegrityViolationException e) {
             // Duas requisicoes simultaneas com o mesmo e-mail passam as duas
