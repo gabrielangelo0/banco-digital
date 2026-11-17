@@ -4,6 +4,8 @@ import com.estudo.banco.support.PostgresTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -18,12 +20,17 @@ class DestinatariosTest extends PostgresTestBase {
     @Autowired
     Destinatarios destinatarios;
 
+    /** Ver o comentario em ComprovanteNaTransferenciaTest: uma conta por dono. */
+    private String email(String quem) {
+        return quem + "-" + UUID.randomUUID() + "@exemplo.com";
+    }
+
     @Test
     void contaCadastradaResolveParaOEmailDoDono() {
-        Long conta = novaContaComDono("Mariana", "1000.00", "mariana@exemplo.com");
+        String endereco = email("mariana");
+        Long conta = novaContaComDono("Mariana", "1000.00", endereco);
 
-        assertThat(destinatarios.para(conta)).contains(
-                new Destinatario("mariana@exemplo.com", "Mariana"));
+        assertThat(destinatarios.para(conta)).contains(new Destinatario(endereco, "Mariana"));
     }
 
     @Test
@@ -33,7 +40,7 @@ class DestinatariosTest extends PostgresTestBase {
 
     @Test
     void enderecoLocalNaoResolve() {
-        Long conta = novaContaComDono("Demo", "1000.00", "demo-99@banco.local");
+        Long conta = novaContaComDono("Demo", "1000.00", "demo-" + UUID.randomUUID() + "@banco.local");
 
         assertThat(destinatarios.para(conta)).isEmpty();
     }
