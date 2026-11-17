@@ -77,6 +77,39 @@ public abstract class PostgresTestBase {
                 Long.class, titular, new BigDecimal(saldo));
     }
 
+    /**
+     * Insere o usuario se ainda nao houver, e devolve o id.
+     *
+     * Os hashes sao strings quaisquer: nenhum teste que usa isto autentica -
+     * quem autentica passa pelo cadastro de verdade. O que importa aqui e a
+     * ligacao `accounts.owner_id -> users.email`, que e por onde o e-mail de
+     * uma conta e encontrado.
+     */
+    protected Long usuarioDe(String email) {
+        Long existente = jdbc.query(
+                "SELECT id FROM users WHERE lower(email) = lower(?)",
+                rs -> rs.next() ? rs.getLong(1) : null, email);
+        if (existente != null) {
+            return existente;
+        }
+        return jdbc.queryForObject(
+                "INSERT INTO users (email, password_hash, transaction_password_hash)"
+                        + " VALUES (lower(?), 'hash-de-teste', 'hash-transacional-de-teste')"
+                        + " RETURNING id",
+                Long.class, email);
+    }
+
+    /**
+     * Conta COM dono. `novaConta` cria conta orfa de proposito, e os testes de
+     * e-mail precisam do caminho que leva ao endereco de quem se cadastrou.
+     */
+    protected Long novaContaComDono(String titular, String saldo, String email) {
+        return jdbc.queryForObject(
+                "INSERT INTO accounts (holder_name, balance, owner_id) VALUES (?, ?, ?)"
+                        + " RETURNING id",
+                Long.class, titular, new BigDecimal(saldo), usuarioDe(email));
+    }
+
     protected BigDecimal saldoDe(Long contaId) {
         return jdbc.queryForObject(
                 "SELECT balance FROM accounts WHERE id = ?", BigDecimal.class, contaId);
