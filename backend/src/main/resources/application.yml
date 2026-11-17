@@ -29,6 +29,14 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
 
+  task:
+    scheduling:
+      # Duas threads, nao uma. O entregador de e-mail faz chamadas HTTPS a cada
+      # ciclo; dividindo a unica thread com o drenador do outbox, a notificacao
+      # na tela passaria a esperar o tempo de rede do provedor - e uma conexao
+      # pendurada prenderia o drenador para sempre.
+      pool-size: 2
+
 server:
   # Configuravel para conviver com outros servicos na mesma maquina de
   # desenvolvimento, onde 8080 costuma ja estar ocupada.
@@ -48,3 +56,23 @@ banco:
   # IP do container do proxy (172.x, que muda a cada recriacao). A porta do
   # backend nao e publicada no host: nada mais alcanca essa interface.
   proxies-confiaveis: 127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+  # E-mail transacional pelo Resend.
+  #
+  # A fila SEMPRE e escrita; `enabled` liga apenas quem entrega, espelhando o
+  # banco.outbox.auto-publish. Se a chave gateasse tambem a escrita, um
+  # incidente no provedor custaria para sempre os comprovantes das
+  # transferencias feitas durante a pausa: nao sobraria linha para tentar de
+  # novo.
+  email:
+    enabled: ${BANCO_EMAIL_ENABLED:false}
+    api-key: ${BANCO_EMAIL_API_KEY:}
+    from: ${BANCO_EMAIL_FROM:Banco <banco@bank.devfly.net>}
+    # So os testes mudam: e por aqui que o servidor de mentira entra.
+    base-url: ${BANCO_EMAIL_BASE_URL:https://api.resend.com}
+    poll-ms: ${BANCO_EMAIL_POLL_MS:5000}
+    max-attempts: ${BANCO_EMAIL_MAX_ATTEMPTS:6}
+    # Mensagem mais velha que isto e descartada sem tentar: ligar a chave pela
+    # primeira vez nao pode despejar comprovantes de dias atras na caixa de
+    # alguem.
+    max-age-hours: ${BANCO_EMAIL_MAX_AGE_HOURS:24}
