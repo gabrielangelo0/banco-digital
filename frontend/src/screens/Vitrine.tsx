@@ -10,9 +10,11 @@ export function Vitrine() {
   return (
     <aside className="vitrine">
       <div className="vitrine-marca">
-        <div className="selo" aria-hidden="true">
-          B
-        </div>
+        <span className="selo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M20.5 3.5C12 3 6.5 6.4 5 12.2c-.6 2.3-.3 4.6.6 6.4l-1.9 2.6 1.7 1.2 1.9-2.5c1.7 1 3.9 1.3 6 .7 5.8-1.6 8.1-7.6 7.2-17.1zM9 16.6c1.2-3.6 3.6-6.2 7-7.8-2.5 2.1-4.3 4.8-5.3 8.1-.6.1-1.2.1-1.7-.3z" />
+          </svg>
+        </span>
         <span className="marca-nome">Banco</span>
       </div>
 

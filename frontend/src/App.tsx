@@ -2,11 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Account, Entry } from './api/client'
 import { ErroDaApi, fetchAccounts, fetchStatement } from './api/client'
 import { sair } from './api/auth'
-import { PainelSaldo } from './components/BalanceCard'
+import { CartaoDaConta } from './components/BalanceCard'
+import { Atalhos } from './components/Atalhos'
+import { ResumoFinanceiro } from './components/Grafico'
+import { Destaques } from './components/Destaques'
+import { BarraDeAbas, Lateral } from './components/Navegacao'
 import { Razao } from './components/StatementList'
 import { TransferSheet } from './components/TransferSheet'
 import { Toasts } from './components/Toast'
-import { somar } from './components/formato'
+import { Icone } from './components/Icone'
+import { resumoDoMes } from './components/formato'
 import { useNotifications } from './hooks/useNotifications'
 import { LoginScreen } from './screens/LoginScreen'
 import { RegisterScreen } from './screens/RegisterScreen'
@@ -45,19 +50,17 @@ export default function App() {
   const [saldoVisivel, setSaldoVisivel] = useState(true)
   const [caixaAberta, setCaixaAberta] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState('')
+  const [secao, setSecao] = useState<'inicio' | 'extrato'>('inicio')
+  const [aviso, setAviso] = useState(false)
+
+  const extratoRef = useRef<HTMLDivElement>(null)
 
   const { notificacoes, conectado, descartar } = useNotifications(estado === 'logado')
   const novos = useLancamentosNovos(lancamentos)
 
   // Somado em unidades inteiras, nao em ponto flutuante. Ver `somar`.
-  const entradas = useMemo(
-    () => somar(lancamentos.filter((l) => l.direction === 'CREDIT').map((l) => l.amount)),
-    [lancamentos]
-  )
-  const saidas = useMemo(
-    () => somar(lancamentos.filter((l) => l.direction === 'DEBIT').map((l) => l.amount)),
-    [lancamentos]
-  )
+  const resumo = useMemo(() => resumoDoMes(lancamentos), [lancamentos])
 
   const carregar = useCallback(async () => {
     try {
@@ -92,6 +95,29 @@ export default function App() {
     if (notificacoes.length > 0) void carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notificacoes.length])
+
+  // O aviso de "isto e so demonstracao" some sozinho; ele nao pede decisao
+  // nenhuma de quem clicou.
+  useEffect(() => {
+    if (!aviso) return
+    const t = setTimeout(() => setAviso(false), 4500)
+    return () => clearTimeout(t)
+  }, [aviso])
+
+  const navegar = useCallback((acao: 'inicio' | 'extrato' | 'transferir') => {
+    if (acao === 'transferir') {
+      setCaixaAberta(true)
+      return
+    }
+    setSecao(acao)
+    const alvo = acao === 'extrato' ? extratoRef.current : null
+    const menosMovimento =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const comportamento: ScrollBehavior = menosMovimento ? 'auto' : 'smooth'
+    if (alvo) alvo.scrollIntoView({ behavior: comportamento, block: 'start' })
+    else window.scrollTo({ top: 0, behavior: comportamento })
+  }, [])
 
   async function encerrarSessao() {
     try {
@@ -156,69 +182,133 @@ export default function App() {
     )
   }
 
+  const inicial = (conta?.holderName ?? '?').charAt(0).toUpperCase()
+  const avisar = () => setAviso(true)
+
   return (
-    <div className="app">
+    <div className="app logado">
       <Toasts notificacoes={notificacoes} aoDescartar={descartar} />
 
-      <header className="barra">
-        <div className="marca">
-          <div className="selo" aria-hidden="true">
-            B
+      {aviso && (
+        <div className="toasts toasts-aviso">
+          <div className="toast aviso" role="status">
+            <div className="toast-icone">
+              <Icone nome="escudo" tamanho={18} />
+            </div>
+            <div>
+              <div className="toast-titulo">Esta parte é só demonstração</div>
+              <div className="toast-texto">
+                O que funciona de verdade aqui é a transferência entre contas.
+              </div>
+            </div>
           </div>
-          <span className="marca-nome">Banco</span>
         </div>
+      )}
 
-        <div className="barra-conta">
-          <div className="barra-nome">{conta?.holderName ?? '—'}</div>
-          <div className="barra-numero">conta {conta?.id ?? '—'}</div>
-        </div>
+      <Lateral
+        ativo={secao}
+        aoNavegar={navegar}
+        aoAvisar={avisar}
+        aoSair={() => void encerrarSessao()}
+      />
 
-        <span
-          className={conectado ? 'pulso' : 'pulso off'}
-          role="img"
-          aria-label={
-            conectado ? 'Notificações conectadas' : 'Notificações desconectadas'
-          }
-        />
-
-        <button className="botao-fantasma" onClick={() => void encerrarSessao()}>
-          Sair
-        </button>
-      </header>
-
-      {/* Pix, pagar e depositar nao estao aqui de proposito. Tres botoes
-          desligados imitando um banco de verdade custam atencao e nao
-          entregam nada; o app faz uma coisa, e essa coisa e o botao do
-          painel.
-
-          A ordem e a do celular: saldo, depois extrato. Numa tela larga o
-          grid reposiciona por area nomeada, sem mexer nesta ordem - que e
-          tambem a ordem do Tab e a de um leitor de tela. */}
-      <main className="conteudo">
-        <PainelSaldo
-          conta={conta}
-          visivel={saldoVisivel}
-          aoAlternar={() => setSaldoVisivel((v) => !v)}
-          entradas={entradas}
-          saidas={saidas}
-          aoTransferir={() => setCaixaAberta(true)}
-        />
-
-        <section className="extrato">
-          <div className="extrato-topo">
-            <h2>Extrato</h2>
-            <span className="extrato-contagem">
-              {lancamentos.length === 1 ? '1 lançamento' : `${lancamentos.length} lançamentos`}
+      <div className="painel">
+        <header className="topo">
+          <div className="topo-quem">
+            <span className="avatar" aria-hidden="true">
+              {inicial}
             </span>
+            <div>
+              <p className="topo-saudacao">
+                Olá, <strong>{conta?.holderName ?? '—'}</strong>!
+              </p>
+              <p className="topo-conta">conta {conta?.id ?? '—'}</p>
+            </div>
           </div>
 
-          {erro ? (
-            <p className="vazio">{erro}</p>
-          ) : (
-            <Razao lancamentos={lancamentos} novos={novos} />
-          )}
-        </section>
-      </main>
+          {/* A busca da referencia, ligada no que existe: ela filtra o extrato
+              por tipo, valor ou identificador. Uma caixa de busca que nao
+              busca seria o enfeite mais caro da tela. */}
+          <label className="busca">
+            <Icone nome="busca" tamanho={18} />
+            <input
+              type="search"
+              value={filtro}
+              placeholder="Buscar no extrato: valor, tipo ou identificador…"
+              onChange={(e) => setFiltro(e.target.value)}
+              aria-label="Buscar no extrato"
+            />
+          </label>
+
+          <span
+            className={conectado ? 'sino' : 'sino off'}
+            role="img"
+            aria-label={conectado ? 'Notificações conectadas' : 'Notificações desconectadas'}
+          >
+            <Icone nome="sino" tamanho={20} />
+            <span className="sino-ponto" />
+          </span>
+
+          <button
+            className="topo-sair"
+            onClick={() => void encerrarSessao()}
+            aria-label="Sair da conta"
+          >
+            <Icone nome="sair" tamanho={20} />
+          </button>
+        </header>
+
+        {/* A ordem e a do celular: cartao, atalhos, movimentacoes, resumo,
+            destaques. Numa tela larga o grid reposiciona em duas colunas sem
+            mexer nesta ordem - que e tambem a ordem do Tab e a de um leitor
+            de tela. */}
+        <main className="grade">
+          <div className="area-cartao">
+            <CartaoDaConta
+              conta={conta}
+              visivel={saldoVisivel}
+              aoAlternar={() => setSaldoVisivel((v) => !v)}
+              entradasDoMes={resumo.entradas}
+              aoVerExtrato={() => navegar('extrato')}
+            />
+          </div>
+
+          <div className="area-atalhos">
+            <Atalhos
+              aoTransferir={() => setCaixaAberta(true)}
+              aoAvisar={avisar}
+              habilitado={Boolean(conta)}
+            />
+          </div>
+
+          <div className="area-extrato" ref={extratoRef}>
+            {erro ? (
+              <section className="cartao">
+                <p className="vazio">{erro}</p>
+              </section>
+            ) : (
+              <Razao
+                lancamentos={lancamentos}
+                novos={novos}
+                visivel={saldoVisivel}
+                filtro={filtro}
+              />
+            )}
+          </div>
+
+          <div className="area-resumo">
+            <ResumoFinanceiro
+              lancamentos={lancamentos}
+              resumo={resumo}
+              visivel={saldoVisivel}
+            />
+          </div>
+
+          <Destaques aoAvisar={avisar} />
+        </main>
+      </div>
+
+      <BarraDeAbas ativo={secao} aoNavegar={navegar} aoAvisar={avisar} />
 
       {caixaAberta && conta && (
         <TransferSheet

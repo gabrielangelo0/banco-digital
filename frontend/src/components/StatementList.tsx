@@ -1,78 +1,107 @@
+import { useState } from 'react'
 import type { Entry } from '../api/client'
-import { formatarDinheiro, formatarHora, rotuloDoDia } from './formato'
+import { formatarDinheiro, quando } from './formato'
+import { Icone } from './Icone'
 
-type Dia = { rotulo: string; lancamentos: Entry[] }
+const PREVIA = 5
 
-/**
- * Agrupa por dia preservando a ordem que o servidor mandou (mais recente
- * primeiro). Um extrato corrido, sem o dia, obriga quem le a decifrar a data
- * de cada linha para saber se aquilo foi hoje.
- */
-function porDia(lancamentos: Entry[]): Dia[] {
-  const dias: Dia[] = []
-  for (const lancamento of lancamentos) {
-    const rotulo = rotuloDoDia(lancamento.createdAt)
-    const ultimo = dias[dias.length - 1]
-    if (ultimo && ultimo.rotulo === rotulo) {
-      ultimo.lancamentos.push(lancamento)
-    } else {
-      dias.push({ rotulo, lancamentos: [lancamento] })
-    }
-  }
-  return dias
-}
+export function Razao({
+  lancamentos,
+  novos,
+  visivel,
+  filtro,
+}: {
+  lancamentos: Entry[]
+  novos: Set<number>
+  visivel: boolean
+  filtro: string
+}) {
+  const [tudo, setTudo] = useState(false)
 
-export function Razao({ lancamentos, novos }: { lancamentos: Entry[]; novos: Set<number> }) {
-  if (lancamentos.length === 0) {
-    return (
-      <p className="vazio">
-        <strong>Nada se moveu ainda.</strong>
-        Transfira para a outra conta de demonstração e o lançamento aparece aqui no
-        mesmo instante.
-      </p>
-    )
-  }
+  const busca = filtro.trim().toLowerCase()
+  const filtrados = busca
+    ? lancamentos.filter((l) => {
+        const rotulo = l.direction === 'CREDIT' ? 'transferência recebida' : 'transferência enviada'
+        return (
+          rotulo.includes(busca) ||
+          l.transferId.toLowerCase().includes(busca) ||
+          String(l.amount).replace('.', ',').includes(busca.replace('.', ','))
+        )
+      })
+    : lancamentos
+
+  const mostrados = tudo || busca ? filtrados : filtrados.slice(0, PREVIA)
 
   return (
-    <div>
-      {porDia(lancamentos).map((dia) => (
-        <div className="dia" key={dia.rotulo}>
-          <h3 className="dia-titulo">{dia.rotulo}</h3>
+    <section className="cartao" aria-label="Movimentações">
+      <div className="cartao-cabeca">
+        <span className="cartao-cabeca-titulo">
+          <span className="cabeca-icone" aria-hidden="true">
+            <Icone nome="historico" tamanho={19} />
+          </span>
+          <h2>{busca ? 'Resultados' : 'Últimas movimentações'}</h2>
+        </span>
 
-          {dia.lancamentos.map((lancamento) => {
-            const entrada = lancamento.direction === 'CREDIT'
+        {filtrados.length > PREVIA && !busca && (
+          <button className="cartao-link" onClick={() => setTudo((t) => !t)}>
+            {tudo ? 'Ver menos' : 'Ver todas'} <Icone nome="seta" tamanho={16} />
+          </button>
+        )}
+      </div>
+
+      {mostrados.length === 0 ? (
+        <p className="vazio">
+          {busca ? (
+            <>
+              <strong>Nada encontrado.</strong>A busca olha o tipo, o valor e o
+              identificador do lançamento.
+            </>
+          ) : (
+            <>
+              <strong>Nada se moveu ainda.</strong>Transfira para a outra conta de
+              demonstração e o lançamento aparece aqui no mesmo instante.
+            </>
+          )}
+        </p>
+      ) : (
+        <ul className="lancamentos">
+          {mostrados.map((l) => {
+            const entrada = l.direction === 'CREDIT'
             return (
-              <div
-                className={novos.has(lancamento.id) ? 'lancamento novo' : 'lancamento'}
-                key={lancamento.id}
+              <li
+                className={novos.has(l.id) ? 'lancamento novo' : 'lancamento'}
+                key={l.id}
               >
-                <div className={entrada ? 'lancamento-icone credito' : 'lancamento-icone'}>
-                  {entrada ? '↓' : '↑'}
-                </div>
+                <span className={entrada ? 'lancamento-icone credito' : 'lancamento-icone'}>
+                  <Icone nome="transferir" tamanho={19} />
+                </span>
 
-                <div className="lancamento-corpo">
-                  <div className="lancamento-titulo">
+                <span className="lancamento-corpo">
+                  <span className="lancamento-titulo">
                     {entrada ? 'Transferência recebida' : 'Transferência enviada'}
-                  </div>
-                  <div className="lancamento-hora">{formatarHora(lancamento.createdAt)}</div>
-                </div>
+                  </span>
+                  {/* O identificador e o que liga esta linha ao log do servidor
+                      e ao par dela na outra conta. */}
+                  <code className="lancamento-id" title={l.transferId}>
+                    #{l.transferId.slice(0, 8)}
+                  </code>
+                </span>
 
-                {/* O identificador da transferencia e o que liga esta linha ao
-                    log do servidor e ao par dela na outra conta. Aparece so
-                    onde ha largura sobrando; no celular ele roubaria espaco
-                    do que importa. */}
-                <code className="lancamento-id" title={lancamento.transferId}>
-                  {lancamento.transferId.slice(0, 8)}
-                </code>
-
-                <div className={entrada ? 'lancamento-valor credito dinheiro' : 'lancamento-valor dinheiro'}>
-                  {entrada ? '+' : '−'} {formatarDinheiro(lancamento.amount)}
-                </div>
-              </div>
+                <span className="lancamento-lado">
+                  <span
+                    className={
+                      entrada ? 'lancamento-valor credito dinheiro' : 'lancamento-valor dinheiro'
+                    }
+                  >
+                    {visivel ? `${entrada ? '+' : '−'} ${formatarDinheiro(l.amount)}` : '•••'}
+                  </span>
+                  <span className="lancamento-hora">{quando(l.createdAt)}</span>
+                </span>
+              </li>
             )
           })}
-        </div>
-      ))}
-    </div>
+        </ul>
+      )}
+    </section>
   )
 }

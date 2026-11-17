@@ -8,11 +8,18 @@ provam, como dinheiro se move entre contas sem se perder, duplicar ou travar.
 das duas contas de demonstração e transfira para a outra. A notificação que aparece no topo
 chega por SSE, não por polling: o backend empurra o evento quando a transferência fecha.
 
-A interface é escura por uma razão de leitura, não de moda: o saldo é a única coisa que
-precisa gritar, e sobre quase preto ele grita sozinho, sem precisar de cartão, borda ou
-sombra em volta. O mesmo app atende celular e desktop — acima de 980px o saldo e a ação
-dividem a mesma linha de base e o extrato ganha colunas fixas, com o identificador da
-transferência em cada linha, que é o que liga o extrato ao log do servidor.
+A interface é clara, com o saldo num cartão escuro: o valor é a única coisa que precisa
+gritar, e sobre quase preto ele grita sozinho, enquanto o resto da tela fica em branco e
+cinza para não disputar. O mesmo app atende celular e desktop — no celular, abas na base;
+acima de 1000px entra a coluna de navegação à esquerda, e acima de 1180px os cartões se
+organizam em duas colunas. O identificador da transferência aparece em cada linha do
+extrato, que é o que liga o extrato ao log do servidor.
+
+Alguns atalhos da tela (Pix, pagamentos, cartões, investimentos) vêm marcados **demo**:
+estão ali porque o layout é de um banco completo, mas este app faz uma coisa só, e
+clicá-los diz isso em vez de não fazer nada. Tudo o que não está marcado é real — o saldo,
+o extrato, a busca, o gráfico de saídas por dia e o total do mês saem do que o servidor
+devolveu.
 
 Há cadastro e login — e **duas senhas**: a de acesso prova quem você é, a transacional
 autoriza mover dinheiro. Autenticar não é autorizar. Para ver sem se cadastrar, entre como
@@ -21,13 +28,25 @@ a cada hora, por lançamento compensatório, nunca apagando o razão.
 
 <p align="center">
   <img src="docs/demo.png"
-       alt="Tela da conta no tema escuro: saldo de R$ 507,50 em destaque, o quanto entrou e saiu, e o extrato agrupado por dia"
+       alt="Tela da conta no celular: cartão escuro com o saldo em destaque, fileira de ações rápidas e as últimas movimentações"
        width="340">
 </p>
 
 <p align="center">
-  <em>Saldo, o quanto entrou e saiu, e o extrato agrupado por dia. Quando a
-  transferência fecha, o saldo anda até o valor novo e a linha recém-chegada acende.</em>
+  <em>Saldo, ações rápidas e as últimas movimentações. Quando a transferência
+  fecha, o saldo anda até o valor novo e a linha recém-chegada acende.</em>
+</p>
+
+<p align="center">
+  <img src="docs/demo-web.png"
+       alt="A mesma conta numa tela larga: coluna de navegação à esquerda, busca no topo, cartão do saldo e ações rápidas lado a lado, extrato e gráfico de saídas por dia embaixo"
+       width="760">
+</p>
+
+<p align="center">
+  <em>A mesma tela numa janela larga. Nada muda de ordem no HTML — só de
+  posição —, então a navegação pelo teclado e por leitor de tela segue a
+  mesma sequência do celular.</em>
 </p>
 
 ---

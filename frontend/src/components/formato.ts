@@ -62,3 +62,98 @@ export function somar(valores: Array<string | number>): string {
   const absoluto = Math.abs(total)
   return `${sinal}${Math.floor(absoluto / ESCALA)}.${String(absoluto % ESCALA).padStart(CASAS, '0')}`
 }
+
+/**
+ * O que entrou e o que saiu NO MES corrente, e a comparacao com o mes
+ * anterior.
+ *
+ * Tudo vem do extrato que o servidor ja mandou - nenhum numero daqui e
+ * inventado para encher o grafico. Quando nao existe mes anterior com
+ * movimento, `variacao` volta nulo e a tela nao mostra comparacao: "0% em
+ * relacao ao mes passado" seria uma afirmacao sobre um mes que nao houve.
+ */
+export type ResumoDoMes = {
+  entradas: string
+  saidas: string
+  variacao: number | null
+}
+
+type MovimentoBruto = { amount: string | number; direction: 'DEBIT' | 'CREDIT'; createdAt: string }
+
+/**
+ * O servidor manda o debito com sinal: "-80.0". Para somar e para medir a
+ * altura de uma barra o que interessa e o tamanho, nao a direcao - essa ja
+ * esta em `direction`. Sem este `abs` o total do mes sai negativo e o teto do
+ * grafico vira zero, que foi exatamente o que aconteceu.
+ */
+const grandeza = (valor: string | number) => Math.abs(emUnidades(valor))
+
+const paraTexto = (unidades: number) =>
+  `${Math.floor(unidades / ESCALA)}.${String(unidades % ESCALA).padStart(CASAS, '0')}`
+
+function mesDe(iso: string): number {
+  const d = new Date(iso)
+  return d.getFullYear() * 12 + d.getMonth()
+}
+
+export function resumoDoMes(lancamentos: MovimentoBruto[]): ResumoDoMes {
+  const agora = new Date()
+  const atual = agora.getFullYear() * 12 + agora.getMonth()
+
+  const noMes = (m: number, direcao: 'DEBIT' | 'CREDIT') =>
+    lancamentos
+      .filter((l) => l.direction === direcao && mesDe(l.createdAt) === m)
+      .reduce((total, l) => total + grandeza(l.amount), 0)
+
+  const saiuAgora = noMes(atual, 'DEBIT')
+  const saiuAntes = noMes(atual - 1, 'DEBIT')
+
+  return {
+    entradas: paraTexto(noMes(atual, 'CREDIT')),
+    saidas: paraTexto(saiuAgora),
+    variacao: saiuAntes === 0 ? null : Math.round(((saiuAgora - saiuAntes) / saiuAntes) * 100),
+  }
+}
+
+/**
+ * Quanto saiu em cada um dos ultimos dias, para as barras.
+ *
+ * Os dias sem movimento entram com zero de proposito: um grafico que pula os
+ * dias vazios desenha um gasto constante onde houve silencio.
+ */
+export type Barra = { rotulo: string; dia: string; valor: number }
+
+const diaCurto = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' })
+
+export function gastoPorDia(lancamentos: MovimentoBruto[], dias = 7): Barra[] {
+  const porChave = new Map<string, number>()
+  for (const l of lancamentos) {
+    if (l.direction !== 'DEBIT') continue
+    const d = new Date(l.createdAt)
+    const chave = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    porChave.set(chave, (porChave.get(chave) ?? 0) + grandeza(l.amount))
+  }
+
+  const barras: Barra[] = []
+  const hoje = new Date()
+  for (let i = dias - 1; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - i)
+    const chave = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    barras.push({
+      rotulo: diaCurto.format(d),
+      dia: chave,
+      valor: (porChave.get(chave) ?? 0) / ESCALA,
+    })
+  }
+  return barras
+}
+
+/**
+ * "Hoje, 09:24". Para datas antigas o dia por extenso nao cabe na linha do
+ * lancamento, entao vira "14/11, 09:24".
+ */
+export function quando(iso: string): string {
+  const rotulo = rotuloDoDia(iso)
+  const curto = rotulo === 'Hoje' || rotulo === 'Ontem' ? rotulo : diaCurto.format(new Date(iso))
+  return `${curto}, ${formatarHora(iso)}`
+}
