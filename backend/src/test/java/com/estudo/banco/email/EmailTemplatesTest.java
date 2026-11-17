@@ -67,14 +67,20 @@ class EmailTemplatesTest {
 
         EmailParaEnviar m = textos.comprovante("g@exemplo.com", perigoso);
 
-        assertThat(m.html()).doesNotContain("<script>").contains("&lt;script&gt;");
+        assertThat(m.html()).doesNotContain("<script>")
+                // O `&` tem de ser escapado ANTES dos outros, senao escaparia
+                // as entidades que ele mesmo acabou de criar.
+                .contains("&lt;script&gt;", "&amp;", "&quot;");
     }
 
     @Test
-    void creditoFalaEmRecebida() {
+    void creditoFalaEmRecebidaJaNoAssunto() {
         EmailParaEnviar m = textos.comprovante("m@exemplo.com", dados(Direction.CREDIT, "17.2500"));
 
-        assertThat(m.assunto()).isEqualTo("Comprovante de transferência — R$ 17,25");
+        // O assunto e a unica coisa visivel na lista da caixa de entrada.
+        // "Comprovante de transferencia" nos dois sentidos faz quem recebeu
+        // dinheiro ler que saiu.
+        assertThat(m.assunto()).isEqualTo("Transferência recebida — R$ 17,25");
         assertThat(m.html()).contains("Transferência recebida");
     }
 

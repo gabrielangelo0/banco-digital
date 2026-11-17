@@ -86,6 +86,17 @@ class ResendClientTest {
     }
 
     @Test
+    void respostaQueOClienteNaoSabeLerEhTemporaria() {
+        // 200 com corpo que nao e JSON: pagina de manutencao, interstitial de
+        // CDN. Sem classificar, a excecao escapa crua e envenena o lote.
+        servidor.expect(requestTo(anything()))
+                .andRespond(withSuccess("<html>manutencao</html>", MediaType.TEXT_HTML));
+
+        assertThatThrownBy(() -> cliente.enviar(mensagem()))
+                .isInstanceOf(FalhaTemporariaDoProvedor.class);
+    }
+
+    @Test
     void aChaveNaoApareceNaMensagemDeErro() {
         servidor.expect(requestTo(anything())).andRespond(withStatus(HttpStatus.FORBIDDEN));
 

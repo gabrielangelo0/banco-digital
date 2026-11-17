@@ -100,7 +100,9 @@ public class EmailTemplates {
 
         return new EmailParaEnviar(
                 destinatario,
-                "Comprovante de transferência — " + valor,
+                // O assunto e a unica coisa visivel na lista da caixa de
+                // entrada: ele precisa responder "entrou ou saiu?" sozinho.
+                (recebida ? "Transferência recebida — " : "Comprovante de transferência — ") + valor,
                 html,
                 texto,
                 "transfer/" + dados.transferId() + "/" + dados.direcao().name());

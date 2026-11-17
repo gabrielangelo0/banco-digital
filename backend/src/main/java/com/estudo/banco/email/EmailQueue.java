@@ -40,6 +40,15 @@ public class EmailQueue {
         if (mensagem.destinatario() == null || mensagem.destinatario().isBlank()) {
             throw new IllegalArgumentException("mensagem sem destinatario");
         }
+        if (sintetico(mensagem.destinatario())) {
+            // Na escrita, e nao so no Destinatarios: o cadastro escreve aqui
+            // direto, e o validador de e-mail aceita "alguem@empresa.local"
+            // sem olhar o dominio de topo. Cada envio para ali e uma rejeicao
+            // definitiva, e rejeicao definitiva queima a reputacao de quem
+            // manda - para todo mundo no dominio.
+            log.info("e-mail nao enfileirado, endereco sintetico chave={}", mensagem.chave());
+            return false;
+        }
         if (mensagens.existsByIdempotencyKey(mensagem.chave())) {
             // Reentrega do mesmo evento. O outbox entrega pelo menos uma vez,
             // entao isto e esperado, nao e erro.
@@ -50,5 +59,9 @@ public class EmailQueue {
         // destinatario e dado pessoal de quem se cadastrou.
         log.info("e-mail enfileirado chave={}", mensagem.chave());
         return true;
+    }
+
+    private boolean sintetico(String endereco) {
+        return endereco.toLowerCase(java.util.Locale.ROOT).endsWith(".local");
     }
 }

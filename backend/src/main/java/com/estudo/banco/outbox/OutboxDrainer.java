@@ -80,7 +80,16 @@ public class OutboxDrainer {
         notificacoes.notificar(dados.targetAccountId(), "transfer", new NotificacaoTransferencia(
                 dados.transferId(), "CREDIT", dados.amount(), dados.sourceAccountId()));
 
-        enfileirarComprovantes(dados);
+        try {
+            enfileirarComprovantes(dados);
+        } catch (RuntimeException e) {
+            // Comprovante perdido se reenfileira a mao - a transferencia esta
+            // gravada e a chave e deterministica. Caixa de saida travada, nao:
+            // esta transacao cobre ate cem eventos, e deixar o estouro subir
+            // reverteria o `published` de todos eles, reentregando o SSE de
+            // cada um a cada segundo, para sempre.
+            log.error("falha ao enfileirar comprovante transferId={}", dados.transferId(), e);
+        }
     }
 
     /**

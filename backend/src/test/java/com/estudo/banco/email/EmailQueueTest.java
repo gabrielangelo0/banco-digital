@@ -47,6 +47,21 @@ class EmailQueueTest extends PostgresTestBase {
     }
 
     @Test
+    void recusaEnderecoSintetico() {
+        String chave = "teste/" + UUID.randomUUID();
+
+        // O cadastro aceita "alguem@empresa.local" - o validador de e-mail nao
+        // olha o dominio de topo. Cada envio para ali e uma rejeicao
+        // definitiva, e rejeicao definitiva queima a reputacao de quem manda.
+        assertThat(fila.enfileirar(new EmailParaEnviar(
+                "alguem@empresa.local", "A", "<p>a</p>", "a", chave))).isFalse();
+
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM email_messages WHERE idempotency_key = ?",
+                Integer.class, chave)).isZero();
+    }
+
+    @Test
     void recusaDestinatarioVazio() {
         assertThatThrownBy(() -> fila.enfileirar(new EmailParaEnviar(
                 "  ", "A", "<p>a</p>", "a", "teste/" + UUID.randomUUID())))

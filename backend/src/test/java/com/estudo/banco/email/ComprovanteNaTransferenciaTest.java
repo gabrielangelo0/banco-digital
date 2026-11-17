@@ -62,6 +62,20 @@ class ComprovanteNaTransferenciaTest extends PostgresTestBase {
                 String.class, "transfer/" + transferId + "/%");
     }
 
+    private String corpoDe(String chave) {
+        return jdbc.queryForObject(
+                "SELECT body_html FROM email_messages WHERE idempotency_key = ?",
+                String.class, chave);
+    }
+
+    /** O evento chegou a ser drenado? Sem isto, "nada enfileirado" se confunde
+     *  com "nunca drenado", e um teste que espera lista vazia passa a toa. */
+    private boolean foiPublicado(UUID transferId) {
+        return jdbc.queryForObject(
+                "SELECT bool_and(published) FROM outbox_events WHERE payload->>'transferId' = ?",
+                Boolean.class, transferId.toString());
+    }
+
     /** Conta com id escolhido, para casar com `banco.demo.account-ids`. */
     private void contaDeDemonstracao(Long id, String titular, String saldo, String email) {
         jdbc.update("INSERT INTO accounts (id, holder_name, balance, owner_id)"
@@ -84,14 +98,35 @@ class ComprovanteNaTransferenciaTest extends PostgresTestBase {
     }
 
     @Test
+    void cadaComprovanteNomeiaSoOProprioDono() {
+        Long origem = novaContaComDono("Gabriel", "1000.00", "gabriel-" + UUID.randomUUID() + "@exemplo.com");
+        Long destino = novaContaComDono("Mariana", "0.00", "mariana-" + UUID.randomUUID() + "@exemplo.com");
+
+        TransferResult r = transfers.execute(new TransferCommand(
+                origem, destino, new BigDecimal("11.00"), UUID.randomUUID().toString()));
+        drenarTudo();
+
+        // O app nao conta a ninguem quem e o dono de uma conta. Quem enviou ve
+        // o proprio nome e o NUMERO de quem recebeu, e vice-versa.
+        assertThat(corpoDe("transfer/" + r.transferId() + "/DEBIT"))
+                .contains("Gabriel").doesNotContain("Mariana");
+        assertThat(corpoDe("transfer/" + r.transferId() + "/CREDIT"))
+                .contains("Mariana").doesNotContain("Gabriel");
+    }
+
+    @Test
     void transferenciaEntreContasDeDemonstracaoNaoEnfileiraNada() {
-        contaDeDemonstracao(9001L, "Demo um", "1000.00", "demo-9001@banco.local");
-        contaDeDemonstracao(9002L, "Demo dois", "500.00", "demo-9002@banco.local");
+        // Endereco COMUM de proposito: com "@banco.local" o segundo filtro do
+        // Destinatarios ja suprimiria a mensagem, e apagar a regra de
+        // demonstracao deixaria este teste verde do mesmo jeito.
+        contaDeDemonstracao(9001L, "Demo um", "1000.00", "demo-um@exemplo.com");
+        contaDeDemonstracao(9002L, "Demo dois", "500.00", "demo-dois@exemplo.com");
 
         TransferResult r = transfers.execute(new TransferCommand(
                 9001L, 9002L, new BigDecimal("5.00"), UUID.randomUUID().toString()));
         drenarTudo();
 
+        assertThat(foiPublicado(r.transferId())).isTrue();
         assertThat(chavesDe(r.transferId())).isEmpty();
     }
 

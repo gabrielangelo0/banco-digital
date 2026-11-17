@@ -95,6 +95,11 @@ services:
       # variavel VAZIA, e valor vazio sobrescreve o default do Spring em vez de
       # cair nele - o remetente sairia em branco.
       BANCO_EMAIL_FROM: ${BANCO_EMAIL_FROM:-Banco <banco@bank.devfly.net>}
+      # As duas pecas da maquina de tentativas, ajustaveis sem editar arquivo
+      # versionado. Cuidado ao subir MAX_AGE_HOURS acima de 24: e por 24h que
+      # o Resend guarda a chave de idempotencia.
+      BANCO_EMAIL_MAX_ATTEMPTS: ${BANCO_EMAIL_MAX_ATTEMPTS:-6}
+      BANCO_EMAIL_MAX_AGE_HOURS: ${BANCO_EMAIL_MAX_AGE_HOURS:-24}
 
     # A JVM calcula o heap a partir do limite do cgroup (MaxRAMPercentage=75,
     # no Dockerfile). SEM limite de container ela le a RAM do HOST: numa

@@ -76,6 +76,15 @@ public class ResendClient {
             // Tempo-limite ou rede. A mensagem da excecao carrega a URL, nunca
             // a chave: ela vive em cabecalho, que nao entra aqui.
             throw new FalhaTemporariaDoProvedor("falha de rede ao falar com o provedor", e);
+        } catch (FalhaTemporariaDoProvedor | FalhaDefinitivaDoProvedor e) {
+            throw e;
+        } catch (RuntimeException e) {
+            // Classificacao TOTAL, de proposito. O caso mais alcancavel e um
+            // 200 cujo corpo nao e JSON - pagina de manutencao, interstitial
+            // de CDN -, que estoura na leitura e escapava cru. Resposta que
+            // nao sei ler e "nao sei, tente mais tarde", nunca "pare a fila".
+            throw new FalhaTemporariaDoProvedor(
+                    "resposta do provedor que nao consegui interpretar", e);
         }
     }
 

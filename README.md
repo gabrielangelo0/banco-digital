@@ -21,8 +21,14 @@ clicá-los diz isso em vez de não fazer nada. Tudo o que não está marcado é 
 o extrato, a busca, o gráfico de saídas por dia e o total do mês saem do que o servidor
 devolveu.
 
-Quando uma transferência fecha, as duas pontas recebem o comprovante por e-mail.
-Ele é o primeiro consumidor do evento de transferência que vive **fora** do
+Quando uma transferência fecha, as duas pontas recebem o comprovante por e-mail,
+e quem se cadastra recebe uma mensagem de boas-vindas. **Isto está pronto mas
+desligado** na demonstração pública: falta verificar o domínio no Resend, e as
+contas de demonstração — as que você usa ao entrar como visitante — nunca
+receberiam e-mail de qualquer forma, porque o endereço delas não existe. Para
+ver funcionando é preciso rodar com uma chave própria.
+
+O e-mail é o primeiro consumidor do evento de transferência que vive **fora** do
 processo — a notificação por SSE some se o navegador estiver fechado, o e-mail
 não —, e por isso tem fila própria no banco, com reentrega e um registro do que
 saiu: dá para responder "esse e-mail foi enviado? quando? com qual identificador

@@ -125,6 +125,24 @@ class EmailSenderTest extends PostgresTestBase {
     }
 
     @Test
+    void umaMensagemRuimNaoDesfazOTrabalhoDaOutra() {
+        String boa = enfileirarUma();
+        String ruim = enfileirarUma();
+        // A segunda estoura com algo que o cliente nao classifica. Se o lote
+        // inteiro vivesse numa transacao so, o SENT da primeira voltaria atras
+        // - e ela JA teria sido entregue ao provedor.
+        when(resend.enviar(any()))
+                .thenReturn("id-da-boa")
+                .thenThrow(new IllegalStateException("estouro inesperado"));
+
+        sender.enviarPendentes();
+
+        assertThat(linha(boa)).containsEntry("status", "SENT")
+                .containsEntry("provider_message_id", "id-da-boa");
+        assertThat(linha(ruim)).containsEntry("status", "PENDING").containsEntry("attempts", 1);
+    }
+
+    @Test
     void naoTentaAntesDaHoraMarcada() {
         String chave = enfileirarUma();
         jdbc.update("UPDATE email_messages SET next_attempt_at = now() + interval '1 hour'"

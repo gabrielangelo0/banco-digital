@@ -33,8 +33,9 @@ export function Vitrine() {
           app ficar perguntando.
         </li>
         <li>
-          Quem se cadastra recebe o comprovante por e-mail. Para ver a ida e a volta,
-          são dois cadastros: conta de demonstração não transfere para fora do par.
+          Cada transferência manda o comprovante por e-mail para os dois lados. Como
+          cadastrado só transfere para cadastrado, ver a ida e a volta pede dois
+          cadastros.
         </li>
       </ul>
 
